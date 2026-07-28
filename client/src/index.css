@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Readability tokens (one place, applied app-wide)
+   The dense grids & report tables lean on a few repeated type sizes and a
+   faint header grey. Tuning them here — after @tailwind utilities so these win
+   by source order — bumps size and contrast on EVERY screen (Day Book, all
+   reports, dashboard, masters) without touching any component, number, or
+   layout. Tabular figures, red negatives and hairline rules are unchanged.
+   ========================================================================== */
+:root {
+  --fs-table-header: 0.75rem; /* 12px — column headers & tags (was 10px) */
+  --fs-label: 0.8125rem; /* 13px — small labels (was 11px) */
+  --fs-table-cell: 0.9rem; /* ~14.5px — grid/table body (was 13px) */
+  --color-faint: #57534e; /* stone-600 — legible header/label grey (was stone-400, too faint) */
+}
+
+/* Bump the tiny type used across dense grids and tables. */
+.text-\[10px\] {
+  font-size: var(--fs-table-header);
+  line-height: 1.1rem;
+}
+.text-\[11px\] {
+  font-size: var(--fs-label);
+  line-height: 1.15rem;
+}
+.text-\[13px\] {
+  font-size: var(--fs-table-cell);
+  line-height: 1.35rem;
+}
+
+/* Darken the faint header/label grey so column headers are clearly legible. */
+.text-stone-400 {
+  color: var(--color-faint);
+}
+
+/* Supplementary Urdu (Nastaliq). Only the bracketed Urdu text renders RTL — the
+   rest of the UI stays LTR. Nastaliq is tall, so it needs extra line-height. */
+.font-urdu {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2;
+  font-size: 0.95em;
+}
+
+/* ==========================================================================
+   Printed-sheet reproduction (paper fidelity)
+   A full black-ruled grid with tabular black figures — the SAME markup renders
+   on screen and on paper (one layout, per Phase 7b). Only black rules + bold
+   text are used (no cell fills), so it prints faithfully even when the browser's
+   "Background graphics" option is OFF.
+   ========================================================================== */
+.paper {
+  color: #000;
+}
+.paper-grid {
+  border-collapse: collapse;
+}
+.paper-grid th,
+.paper-grid td {
+  border: 1px solid #000;
+  padding: 1px 5px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: top;
+}
+.paper-grid th {
+  font-weight: 700;
+}
+.paper-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Spaced-out section caps exactly as printed: "S A L E", "P U R C H A S E". */
+.paper-caps {
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Reports print as clean A4 paper: hide the app chrome, drop the card framing.
+   Paper orientation is owned solely by <PageSize> (its @page rule), never here. */
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .paper-grid th,
+  .paper-grid td {
+    border: 0.6pt solid #000;
+  }
+  /* Negatives are RED on screen but the printed sheets are monochrome — force
+     the accounting-red (and its nested spans) to black on paper. */
+  .paper .text-red-600,
+  .paper .text-red-600 * {
+    color: #000 !important;
+  }
+}

@@ -1,0 +1,14 @@
+# Keep the build context small and never overwrite the image's installed deps.
+node_modules
+**/node_modules
+client/dist
+server/coverage
+backups
+.git
+.gitignore
+*.log
+npm-debug.log*
+.env
+**/.env
+.DS_Store
+scratchpad

@@ -1,0 +1,25 @@
+# Render Blueprint (optional). After pushing to GitHub you can create the backend
+# via "New + → Blueprint" and Render reads this file, or set the same values by
+# hand in a normal Web Service (see docs/DEPLOY.md). Secret values are never
+# committed — you type them in the dashboard (sync:false).
+services:
+  - type: web
+    name: maryam-fashion-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # Generate: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+      - key: JWT_SECRET
+        sync: false
+      # Atlas connection string (mongodb+srv://...). MUST include a database name.
+      - key: MONGODB_URI
+        sync: false
+      # Your Vercel URL, e.g. https://maryam-fashion.vercel.app (no trailing slash).
+      - key: CLIENT_ORIGIN
+        sync: false
