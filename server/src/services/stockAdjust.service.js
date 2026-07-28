@@ -1,7 +1,7 @@
 import Product from '../models/Product.js';
 import StockTransaction from '../models/StockTransaction.js';
 import ApiError from '../utils/ApiError.js';
-import { getStock } from './stock.service.js';
+import { getStock, getStockAll } from './stock.service.js';
 import { getSetting } from './setting.service.js';
 import { costRateForProduct } from './profit.js';
 import { karachiDay } from '../utils/shopDate.js';
@@ -12,22 +12,19 @@ import { karachiDay } from '../utils/shopDate.js';
 // central profitFilter strips it for users without viewProfit. Sorted by code
 // number so k2, k3 … k180 read in order.
 export async function getCurrentStock(ymd) {
-  const [products, setting] = await Promise.all([
+  const [products, setting, stockMap] = await Promise.all([
     Product.find({ isActive: true }).sort({ codeNumber: 1, code: 1 }).lean(),
     getSetting(),
+    getStockAll(ymd), // ALL products' derived stock in ONE aggregation, not per-product
   ]);
-  const rows = [];
-  for (const p of products) {
-    rows.push({
-      productId: p._id,
-      code: p.code,
-      name: p.name,
-      codeNumber: p.codeNumber,
-      costRate: costRateForProduct(p, setting), // derived; stripped for operators
-      stock: await getStock(p._id, ymd), // derived current stock, NOT openingStock
-    });
-  }
-  return rows;
+  return products.map((p) => ({
+    productId: p._id,
+    code: p.code,
+    name: p.name,
+    codeNumber: p.codeNumber,
+    costRate: costRateForProduct(p, setting), // derived; stripped for operators
+    stock: stockMap.get(String(p._id)) || 0, // derived current stock, NOT openingStock
+  }));
 }
 
 /**
