@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Party from '../models/Party.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import ApiError from '../utils/ApiError.js';
-import { getPartyBalance } from './ledger.service.js';
+import { getPartyBalance, getPartyBalances } from './ledger.service.js';
 import { karachiDay } from '../utils/shopDate.js';
 
 // Bank accounts are parties with type BANK (docs/07 R9.3). They reuse the SAME
@@ -22,9 +22,9 @@ async function getBank(id) {
 export async function listBanks() {
   const banks = await Party.find({ type: 'BANK', isActive: true }).sort({ name: 1 }).lean();
   const today = karachiDay(new Date());
-  const out = [];
-  for (const b of banks) out.push({ ...b, balance: await getPartyBalance(b._id, today) });
-  return out;
+  const balances = await getPartyBalances(today); // one aggregation for all banks
+  const zero = { signedBalance: 0, side: 'NONE', amount: 0 };
+  return banks.map((b) => ({ ...b, balance: balances.get(String(b._id)) || zero }));
 }
 
 // Next BV voucher number for a bank (a simple per-account running series).
