@@ -77,7 +77,14 @@ const cleanExpense = (l) => ({
 // user actually saves content (saveDraft). This is what stops "just opening a
 // date" from littering empty drafts that then block the next day's post.
 export async function getDay(ymd) {
-  const day = await findByDate(ymd);
+  // The four reads are independent — run them CONCURRENTLY instead of awaiting in
+  // series (four sequential round-trips to a remote DB is what made this slow).
+  const [day, openingCash, previousDay, nextBill] = await Promise.all([
+    findByDate(ymd),
+    openingCashFor(ymd),
+    previousDayReminders(ymd),
+    nextBillNo(),
+  ]);
   const dayObj = day
     ? day.toObject()
     : {
@@ -94,9 +101,9 @@ export async function getDay(ymd) {
       };
   return {
     day: dayObj,
-    openingCash: await openingCashFor(ymd),
-    previousDay: await previousDayReminders(ymd),
-    nextBillNo: await nextBillNo(), // base for auto-numbering new bills (R9.1)
+    openingCash,
+    previousDay,
+    nextBillNo: nextBill, // base for auto-numbering new bills (R9.1)
   };
 }
 

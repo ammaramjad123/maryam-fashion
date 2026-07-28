@@ -4,8 +4,8 @@ import Party from '../models/Party.js';
 import Product from '../models/Product.js';
 import ExpenseHead from '../models/ExpenseHead.js';
 import ApiError from '../utils/ApiError.js';
-import { getPartyBalance } from './ledger.service.js';
-import { getStock } from './stock.service.js';
+import { getPartyBalance, getPartyBalances } from './ledger.service.js';
+import { getStockAll } from './stock.service.js';
 import { getCashBalance } from './cash.service.js';
 import { dayStart, nextDayStart, addDays, karachiDay } from '../utils/shopDate.js';
 import { displayBillNos } from '../utils/billNo.js';
@@ -209,12 +209,16 @@ export async function getDailyStock(ymd) {
     profit: 0,
     closing: 0,
   };
+  // ALL products' opening (prev) and closing (ymd) stock in TWO aggregations,
+  // not two getStock round-trips per product (was ~4×N trips to a remote DB).
+  const [openingMap, closingMap] = await Promise.all([getStockAll(prev), getStockAll(ymd)]);
+
   const rows = [];
   for (const p of products) {
     const id = String(p._id);
     const a = per.get(id) || ZERO;
-    const opening = await getStock(p._id, prev); // engine
-    const closing = await getStock(p._id, ymd); // engine
+    const opening = openingMap.get(id) || 0; // engine (batched)
+    const closing = closingMap.get(id) || 0; // engine (batched)
     const moved = a.saleQty !== 0 || a.purchaseQty !== 0 || a.saleAmount !== 0;
     if (opening === 0 && closing === 0 && !moved) continue; // skip never-stocked codes
     rows.push({
@@ -351,8 +355,8 @@ export async function getPosition(from, to) {
     .select('_id')
     .sort({ name: 1 })
     .lean();
-  const accounts = [];
-  for (const b of banks) accounts.push(await getLedger(b._id, from, to));
+  // Each bank's ledger concurrently (was sequential, one round-trip chain each).
+  const accounts = await Promise.all(banks.map((b) => getLedger(b._id, from, to)));
   // Grand total = the SUM of every bank's closing balance (same per-account
   // balances already shown), as one figure.
   const grandSigned = accounts.reduce((s, a) => s + a.closing.signedBalance, 0);
@@ -374,11 +378,13 @@ export async function getOutstanding() {
     .select('name accountCode type')
     .lean();
   const today = karachiDay(new Date());
+  const balances = await getPartyBalances(today); // one aggregation, not N
 
   const receivables = [];
   const payables = [];
   for (const p of parties) {
-    const bal = await getPartyBalance(p._id, today); // engine
+    const bal = balances.get(String(p._id));
+    if (!bal) continue;
     if (bal.side === 'DR') receivables.push({ ...p, amount: bal.amount });
     else if (bal.side === 'CR') payables.push({ ...p, amount: bal.amount });
   }

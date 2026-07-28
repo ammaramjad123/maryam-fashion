@@ -98,10 +98,12 @@ export default function DayBook() {
   useEffect(() => {
     (async () => {
       try {
+        // Reference data — cached for 5 min so revisiting the Day Book is instant
+        // (a create/edit anywhere busts the cache automatically). See lib/api.js.
         const [prod, parties, heads] = await Promise.all([
-          apiFetch('/products?limit=500'),
-          apiFetch('/parties?limit=500'),
-          apiFetch('/expense-heads?limit=500'),
+          apiFetch('/products?limit=500', { cacheTtl: 300000 }),
+          apiFetch('/parties?limit=500', { cacheTtl: 300000 }),
+          apiFetch('/expense-heads?limit=500', { cacheTtl: 300000 }),
         ]);
         setProductMeta(
           Object.fromEntries(

@@ -1,8 +1,8 @@
 import DayBook from '../models/DayBook.js';
 import Party from '../models/Party.js';
 import Product from '../models/Product.js';
-import { getPartyBalance } from './ledger.service.js';
-import { getStock } from './stock.service.js';
+import { getPartyBalances } from './ledger.service.js';
+import { getStockAll } from './stock.service.js';
 import { getCashBalance } from './cash.service.js';
 import { dayStart, nextDayStart } from '../utils/shopDate.js';
 
@@ -22,29 +22,37 @@ function findPostedDay(ymd) {
  * without viewProfit by the central profitFilter.
  */
 export async function getDashboard(ymd) {
-  const day = await findPostedDay(ymd);
+  // Everything the dashboard needs, fetched CONCURRENTLY. Party balances and
+  // product stock are each a SINGLE aggregation (getPartyBalances / getStockAll)
+  // instead of one round-trip per party/product — the old per-item loops were an
+  // N+1 that turned into ~90 sequential trips to a remote (Atlas) database.
+  const [day, cashInHand, balances, stockMap, parties, products] = await Promise.all([
+    findPostedDay(ymd),
+    getCashBalance(ymd),
+    getPartyBalances(ymd),
+    getStockAll(ymd),
+    // Parties & Credit (docs/03 Module 2b): who owes us (Dr) and whom we owe (Cr).
+    // Banks are NOT debtors/creditors — their balance is our own money held at the
+    // bank (docs/07 R9.3); they belong only in the Position report, never here.
+    Party.find({ isActive: true, type: { $ne: 'BANK' } })
+      .select('_id name accountCode type')
+      .lean(),
+    Product.find({ isActive: true }).select('_id code name').lean(),
+  ]);
   const t = day?.totals || {};
 
-  const cashInHand = await getCashBalance(ymd);
-
-  // Parties & Credit (docs/03 Module 2b): who owes us (jin se lena hai → Dr) and
-  // whom we owe (jin ko dena hai → Cr), per party, all from the engine balance.
-  // Banks are NOT debtors/creditors — their balance is our own money held at the
-  // bank (docs/07 R9.3). They belong only in the Position report, never here.
-  const parties = await Party.find({ isActive: true, type: { $ne: 'BANK' } })
-    .select('_id name accountCode type')
-    .lean();
   const receivables = []; // Dr — they owe us
   const payables = []; // Cr — we owe them
   let totalReceivable = 0;
   let totalPayable = 0;
   for (const p of parties) {
-    const bal = await getPartyBalance(p._id, ymd);
+    const bal = balances.get(String(p._id));
+    if (!bal || bal.side === 'NONE') continue;
     const row = { name: p.name, accountCode: p.accountCode, type: p.type, amount: bal.amount };
     if (bal.side === 'DR') {
       totalReceivable += bal.amount;
       receivables.push(row);
-    } else if (bal.side === 'CR') {
+    } else {
       totalPayable += bal.amount;
       payables.push(row);
     }
@@ -54,10 +62,9 @@ export async function getDashboard(ymd) {
 
   // Current stock per product → low-stock list. (No stale-cost warning any more:
   // cost is derived from the code and never drifts — docs/07 R6.1.)
-  const products = await Product.find({ isActive: true }).select('code name').lean();
   const lowStock = [];
   for (const prod of products) {
-    const stock = await getStock(prod._id, ymd);
+    const stock = stockMap.get(String(prod._id)) || 0;
     if (stock <= LOW_STOCK_THRESHOLD) lowStock.push({ code: prod.code, name: prod.name, stock });
   }
   lowStock.sort((a, b) => a.stock - b.stock);

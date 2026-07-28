@@ -28,3 +28,35 @@ export async function getStock(productId, uptoDate) {
   }
   return stock;
 }
+
+/**
+ * Closing stock for EVERY product as of `uptoDate`, in ONE aggregation over
+ * StockTransaction (grouped by productId) merged with the products' openingStock
+ * — the batch form of getStock, to avoid an N+1 (two round-trips per product)
+ * when a caller needs the whole inventory (dashboard, Daily Stock report).
+ * Mirrors getStock exactly: SALE subtracts (a negative-qty return adds back),
+ * everything else adds. Returns a Map: productId(string) → closing qty.
+ */
+export async function getStockAll(uptoDate) {
+  const upper = nextDayStart(uptoDate);
+  const [products, txns] = await Promise.all([
+    Product.find().select('_id openingStock').lean(),
+    StockTransaction.aggregate([
+      { $match: { date: { $lt: upper } } },
+      {
+        $group: {
+          _id: '$productId',
+          net: {
+            $sum: { $cond: [{ $eq: ['$type', 'SALE'] }, { $multiply: ['$qty', -1] }, '$qty'] },
+          },
+        },
+      },
+    ]),
+  ]);
+  const net = new Map(txns.map((t) => [String(t._id), t.net]));
+  const map = new Map();
+  for (const p of products) {
+    map.set(String(p._id), (p.openingStock || 0) + (net.get(String(p._id)) || 0));
+  }
+  return map;
+}
