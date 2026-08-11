@@ -15,7 +15,7 @@ import LedgerEntry from '../src/models/LedgerEntry.js';
 import StockTransaction from '../src/models/StockTransaction.js';
 import Setting from '../src/models/Setting.js';
 import * as productService from '../src/services/product.service.js';
-import { resetKeepParties } from '../src/services/golive.service.js';
+import { resetKeepParties, zeroBankOpenings } from '../src/services/golive.service.js';
 import { create as createParty } from '../src/services/party.service.js';
 import { getPartyBalance } from '../src/services/ledger.service.js';
 import { getStockAll } from '../src/services/stock.service.js';
@@ -115,5 +115,40 @@ describe('resetKeepParties — everything to zero except parties', () => {
 
     // Opening cash zeroed.
     expect((await Setting.findOne().lean()).openingCash).toBe(0);
+  });
+});
+
+describe('zeroBankOpenings — clear bank balances but keep the banks', () => {
+  it('drops bank OPENING entries + zeros openingBalance; balance becomes 0', async () => {
+    const hbl = await createParty({
+      name: 'HBL Main',
+      type: 'BANK',
+      openingBalance: 500000,
+      openingType: 'DR',
+      openingDate: '2025-04-01',
+    });
+    // A non-bank party keeps its opening (only banks are touched).
+    const cust = await createParty({
+      name: 'Kashif Unit',
+      type: 'SUPPLIER',
+      openingBalance: 1073600,
+      openingType: 'CR',
+      openingDate: '2026-08-07',
+    });
+
+    const res = await zeroBankOpenings();
+    expect(res.banks).toBe(1);
+    expect(res.openingEntriesRemoved).toBe(1);
+
+    // Bank kept, but its balance is now 0.
+    expect(await Party.findById(hbl._id)).not.toBeNull();
+    const bankBal = await getPartyBalance(hbl._id, karachiDay(new Date()));
+    expect(bankBal.amount).toBe(0);
+    expect(bankBal.side).toBe('NONE');
+
+    // The non-bank party is untouched.
+    const custBal = await getPartyBalance(cust._id, karachiDay(new Date()));
+    expect(custBal.amount).toBe(1073600);
+    expect(custBal.side).toBe('CR');
   });
 });

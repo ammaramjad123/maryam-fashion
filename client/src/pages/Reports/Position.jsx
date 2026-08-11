@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../../lib/api.js';
-import { ymdOf } from '../../lib/day.js';
+import { ymdOf, todayYmd, addDays } from '../../lib/day.js';
 import ReportShell from './ReportShell.jsx';
 import PageSize from './PageSize.jsx';
 import { ReportTable } from './parts.jsx';
@@ -98,8 +98,9 @@ export function PositionSheet({ data, from, to }) {
 
 export default function Position() {
   const [params, setParams] = useSearchParams();
-  const from = params.get('from') || '2025-04-01';
-  const to = params.get('to') || '2025-12-31';
+  // Default to a self-updating window ending TODAY (never a fixed past date).
+  const to = params.get('to') || todayYmd();
+  const from = params.get('from') || addDays(to, -30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

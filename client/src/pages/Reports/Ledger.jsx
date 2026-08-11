@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../../lib/api.js';
 import { downloadCsv } from '../../lib/csv.js';
-import { ymdOf } from '../../lib/day.js';
+import { ymdOf, todayYmd, addDays } from '../../lib/day.js';
 import TypeaheadInput from '../DayBook/TypeaheadInput.jsx';
 import ReportShell from './ReportShell.jsx';
 import PageSize from './PageSize.jsx';
@@ -97,8 +97,11 @@ export function LedgerSheet({ data, from, to }) {
 export default function Ledger() {
   const [params, setParams] = useSearchParams();
   const partyId = params.get('partyId') || '';
-  const from = params.get('from') || '2025-04-01';
-  const to = params.get('to') || '2025-04-30';
+  // Default to a self-updating window ending TODAY (never a fixed past date).
+  // The opening balance carries forward from before `from`, so a recent start
+  // keeps every balance correct — it only bounds which rows are listed.
+  const to = params.get('to') || todayYmd();
+  const from = params.get('from') || addDays(to, -30);
 
   const [partyName, setPartyName] = useState('');
   const [data, setData] = useState(null);

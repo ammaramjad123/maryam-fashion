@@ -55,6 +55,20 @@ export async function resetKeepParties() {
   return counts;
 }
 
+// Zero the bank accounts: drop their OPENING ledger entries and set openingBalance
+// to 0, so each bank's derived balance becomes 0. Banks are kept (they stay in the
+// list) — only their opening money is cleared. Safe to run any time; after a
+// go-live reset banks hold only their OPENING row, so this simply removes it.
+export async function zeroBankOpenings() {
+  const banks = await Party.find({ type: 'BANK' }).select('_id name').lean();
+  const ids = banks.map((b) => b._id);
+  const openingEntriesRemoved = (
+    await LedgerEntry.deleteMany({ partyId: { $in: ids }, sourceType: 'OPENING' })
+  ).deletedCount;
+  await Party.updateMany({ type: 'BANK' }, { $set: { openingBalance: 0 } });
+  return { banks: banks.length, openingEntriesRemoved };
+}
+
 // The current opening position + any problems, for the Day-Zero confirmation.
 export async function goLiveSummary() {
   const today = karachiDay(new Date());
