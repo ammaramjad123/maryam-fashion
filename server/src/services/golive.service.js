@@ -69,6 +69,23 @@ export async function zeroBankOpenings() {
   return { banks: banks.length, openingEntriesRemoved };
 }
 
+// HARD delete every bank account (type BANK) so the owner can add his own from
+// scratch. Guarded: refuses if any bank still has a ledger entry (run zeroBanks
+// first) — deleting a bank with history would orphan those rows. Returns the
+// removed names.
+export async function deleteAllBanks() {
+  const banks = await Party.find({ type: 'BANK' }).select('_id name').lean();
+  const ids = banks.map((b) => b._id);
+  const withEntries = await LedgerEntry.distinct('partyId', { partyId: { $in: ids } });
+  if (withEntries.length) {
+    throw new Error(
+      `Refusing: ${withEntries.length} bank(s) still have ledger entries. Run zero:banks first.`
+    );
+  }
+  const removed = (await Party.deleteMany({ _id: { $in: ids } })).deletedCount;
+  return { removed, names: banks.map((b) => b.name) };
+}
+
 // The current opening position + any problems, for the Day-Zero confirmation.
 export async function goLiveSummary() {
   const today = karachiDay(new Date());

@@ -15,7 +15,11 @@ import LedgerEntry from '../src/models/LedgerEntry.js';
 import StockTransaction from '../src/models/StockTransaction.js';
 import Setting from '../src/models/Setting.js';
 import * as productService from '../src/services/product.service.js';
-import { resetKeepParties, zeroBankOpenings } from '../src/services/golive.service.js';
+import {
+  resetKeepParties,
+  zeroBankOpenings,
+  deleteAllBanks,
+} from '../src/services/golive.service.js';
 import { create as createParty } from '../src/services/party.service.js';
 import { getPartyBalance } from '../src/services/ledger.service.js';
 import { getStockAll } from '../src/services/stock.service.js';
@@ -150,5 +154,32 @@ describe('zeroBankOpenings — clear bank balances but keep the banks', () => {
     const custBal = await getPartyBalance(cust._id, karachiDay(new Date()));
     expect(custBal.amount).toBe(1073600);
     expect(custBal.side).toBe('CR');
+  });
+});
+
+describe('deleteAllBanks — remove banks so the owner adds his own', () => {
+  it('hard-deletes banks with no entries; keeps non-bank parties', async () => {
+    const hbl = await createParty({ name: 'HBL Main', type: 'BANK', openingType: 'DR' });
+    await createParty({ name: 'Meezan Current', type: 'BANK', openingType: 'DR' });
+    const cust = await createParty({ name: 'Kashif Unit', type: 'SUPPLIER', openingType: 'CR' });
+
+    const res = await deleteAllBanks();
+    expect(res.removed).toBe(2);
+    expect(await Party.countDocuments({ type: 'BANK' })).toBe(0);
+    expect(await Party.findById(hbl._id)).toBeNull();
+    expect(await Party.findById(cust._id)).not.toBeNull(); // supplier survives
+  });
+
+  it('REFUSES to delete a bank that still has a ledger entry', async () => {
+    const bank = await createParty({
+      name: 'HBL Main',
+      type: 'BANK',
+      openingBalance: 500000,
+      openingType: 'DR',
+      openingDate: '2025-04-01',
+    });
+    // The opening wrote an OPENING entry → deletion must refuse.
+    await expect(deleteAllBanks()).rejects.toThrow(/ledger entries/i);
+    expect(await Party.findById(bank._id)).not.toBeNull();
   });
 });
