@@ -38,6 +38,12 @@ export default function makeCrudController(service) {
     }),
 
     deactivate: asyncHandler(async (req, res) => {
+      // ?hard=true PHYSICALLY removes the record — only where the service opts in
+      // with a `remove` (currently just Product). Everything else soft-deletes.
+      if (req.query.hard === 'true' && service.remove) {
+        const removed = await service.remove(req.params.id);
+        return res.json({ success: true, data: { item: removed }, message: 'Deleted' });
+      }
       const item = await service.deactivate(req.params.id);
       res.json({ success: true, data: { item }, message: 'Deactivated' });
     }),

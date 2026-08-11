@@ -18,6 +18,7 @@
     "golive:verify": "node src/scripts/goliveVerify.js",
     "golive:setup": "node src/scripts/goliveSetup.js",
     "reset:golive": "node src/scripts/resetGolive.js",
+    "reset:keep-parties": "node src/scripts/resetKeepParties.js",
     "cleanup:empty-drafts": "node src/scripts/cleanupEmptyDrafts.js",
     "resequence:pages": "node src/scripts/resequencePages.js"
   },

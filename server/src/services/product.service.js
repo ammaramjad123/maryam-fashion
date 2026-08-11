@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
+import StockTransaction from '../models/StockTransaction.js';
 import ApiError from '../utils/ApiError.js';
 import { getPagination, paginated, escapeRegex } from '../utils/pagination.js';
 import { getSetting } from './setting.service.js';
@@ -122,4 +123,22 @@ export async function deactivate(id) {
   product.isActive = false;
   await product.save();
   return serialize(product, await getSetting());
+}
+
+// HARD delete — physically remove the code (docs/04 balances are derived, so a
+// code with NO stock movement carries no history to protect). A code that HAS
+// moved (any StockTransaction) is refused: deleting it would orphan those rows
+// and silently change past stock reports. Deactivate such a code instead.
+// Products are the ONLY master that may be hard-deleted (a stale price bucket is
+// noise, not an audit record); parties/expense heads stay soft-delete only.
+export async function remove(id) {
+  const product = await findDoc(id);
+  const used = await StockTransaction.exists({ productId: product._id });
+  if (used) {
+    throw ApiError.conflict(
+      `Can't delete ${product.code}: it has stock movements. Deactivate it instead, or delete it after a reset.`
+    );
+  }
+  await Product.deleteOne({ _id: product._id });
+  return { _id: product._id, code: product.code };
 }

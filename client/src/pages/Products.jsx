@@ -22,6 +22,8 @@ export default function Products() {
   const [msg, setMsg] = useState(null);
   const [search, setSearch] = useState('');
   const [panel, setPanel] = useState(null); // 'adjust' | 'add' | null
+  const [confirmId, setConfirmId] = useState(null); // row awaiting a 2nd click to delete
+  const [deletingId, setDeletingId] = useState(null); // delete in flight
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +37,26 @@ export default function Products() {
       setLoading(false);
     }
   }, []);
+
+  // HARD delete (?hard=true) — physically removes the code. The server refuses if
+  // the code has any stock movement, so this only ever removes unused codes.
+  const remove = useCallback(
+    async (row) => {
+      setError('');
+      setDeletingId(row.productId);
+      try {
+        await apiFetch(`/products/${row.productId}?hard=true`, { method: 'DELETE' });
+        setMsg(`Deleted code ${row.code}.`);
+        setConfirmId(null);
+        await load();
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [load]
+  );
 
   useEffect(() => {
     load();
@@ -115,6 +137,7 @@ export default function Products() {
                 <th className="px-4 py-2 font-medium">Code</th>
                 {showCost && <th className="px-4 py-2 text-right font-medium">Cost</th>}
                 <th className="px-4 py-2 text-right font-medium">Stock</th>
+                {isAdmin && <th className="px-4 py-2" />}
               </tr>
             </thead>
             <tbody>
@@ -134,6 +157,38 @@ export default function Products() {
                   >
                     {money(r.stock)}
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-1.5 text-right whitespace-nowrap">
+                      {confirmId === r.productId ? (
+                        <>
+                          <button
+                            onClick={() => remove(r)}
+                            disabled={deletingId === r.productId}
+                            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                          >
+                            {deletingId === r.productId ? 'Deleting…' : 'Confirm'}
+                          </button>{' '}
+                          <button
+                            onClick={() => setConfirmId(null)}
+                            disabled={deletingId === r.productId}
+                            className="rounded border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setConfirmId(r.productId);
+                            setError('');
+                          }}
+                          className="rounded border border-stone-300 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

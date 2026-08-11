@@ -28,6 +28,33 @@ export async function resetForGoLive() {
   return counts;
 }
 
+// Reset for go-live but KEEP the parties (and banks) exactly as they are —
+// their opening balances live as OPENING ledger entries, which we preserve.
+// Everything else goes to zero:
+//   • all day books deleted
+//   • all POSTED (non-opening) ledger entries deleted — party/bank openings stay
+//   • all stock transactions deleted
+//   • every product's openingStock → 0 (products themselves are kept; prune the
+//     dead ones by hand with the Delete button on the Products screen)
+//   • openingCash → 0
+// Expense heads, Setting tuning (codeMultiplier, purchaseProfitFormula) and User
+// logins are untouched.
+export async function resetKeepParties() {
+  const counts = {
+    dayBooks: (await DayBook.deleteMany({})).deletedCount,
+    postedLedgerEntries: (await LedgerEntry.deleteMany({ sourceType: { $ne: 'OPENING' } }))
+      .deletedCount,
+    stockTransactions: (await StockTransaction.deleteMany({})).deletedCount,
+  };
+  const stockCleared = (await Product.updateMany({}, { $set: { openingStock: 0 } })).modifiedCount;
+  await Setting.updateOne({}, { $set: { openingCash: 0 } }, { upsert: true });
+
+  counts.productsStockZeroed = stockCleared;
+  counts.partiesKept = await Party.countDocuments({});
+  counts.openingLedgerEntriesKept = await LedgerEntry.countDocuments({ sourceType: 'OPENING' });
+  return counts;
+}
+
 // The current opening position + any problems, for the Day-Zero confirmation.
 export async function goLiveSummary() {
   const today = karachiDay(new Date());
