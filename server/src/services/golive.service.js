@@ -7,6 +7,7 @@ import StockTransaction from '../models/StockTransaction.js';
 import Setting from '../models/Setting.js';
 import { getPartyBalance } from './ledger.service.js';
 import { karachiDay } from '../utils/shopDate.js';
+import { parseCodeNumber } from '../utils/productCode.js';
 
 // Go-Live ("Day Zero") helpers. resetForGoLive wipes all transactional data and
 // the demo masters so the shop can start clean; goLiveSummary reads the current
@@ -84,6 +85,24 @@ export async function deleteAllBanks() {
   }
   const removed = (await Party.deleteMany({ _id: { $in: ids } })).deletedCount;
   return { removed, names: banks.map((b) => b.name) };
+}
+
+// Re-derive every product's stored codeNumber from its code (docs/07 R6). The
+// codeNumber is denormalised and only refreshed when the code changes, so a
+// product entered before parseCodeNumber learned to keep the decimal point (e.g.
+// 'K24.50' → 2450 instead of 24.5) carries a stale value that 50×'s its cost.
+// This recomputes them all and reports what moved. Idempotent — safe to re-run.
+export async function recomputeCodeNumbers() {
+  const products = await Product.find({}).select('code codeNumber').lean();
+  const fixed = [];
+  for (const p of products) {
+    const correct = parseCodeNumber(p.code);
+    if (correct !== p.codeNumber) {
+      await Product.updateOne({ _id: p._id }, { $set: { codeNumber: correct } });
+      fixed.push({ code: p.code, was: p.codeNumber, now: correct });
+    }
+  }
+  return { scanned: products.length, changed: fixed.length, fixed };
 }
 
 // The current opening position + any problems, for the Day-Zero confirmation.

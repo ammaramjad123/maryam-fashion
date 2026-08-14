@@ -19,6 +19,7 @@ import {
   resetKeepParties,
   zeroBankOpenings,
   deleteAllBanks,
+  recomputeCodeNumbers,
 } from '../src/services/golive.service.js';
 import { create as createParty } from '../src/services/party.service.js';
 import { getPartyBalance } from '../src/services/ledger.service.js';
@@ -154,6 +155,25 @@ describe('zeroBankOpenings — clear bank balances but keep the banks', () => {
     const custBal = await getPartyBalance(cust._id, karachiDay(new Date()));
     expect(custBal.amount).toBe(1073600);
     expect(custBal.side).toBe('CR');
+  });
+});
+
+describe('recomputeCodeNumbers — fix stale/point-value code numbers', () => {
+  it('re-derives codeNumber from the code, keeping the decimal', async () => {
+    // Simulate a product saved before the parser kept the decimal point:
+    // force the stored codeNumber to the digits-only 2450 via a raw update
+    // (updateOne skips the pre-save hook that would re-derive it).
+    const stale = await Product.create({ code: 'K24.50', name: 'Cloth' });
+    await Product.updateOne({ _id: stale._id }, { $set: { codeNumber: 2450 } });
+    // A correct one must be left untouched (idempotent).
+    const good = await Product.create({ code: 'K30', name: 'Cloth K30' });
+
+    const res = await recomputeCodeNumbers();
+    expect(res.scanned).toBe(2);
+    expect(res.changed).toBe(1);
+
+    expect((await Product.findById(stale._id)).codeNumber).toBe(24.5);
+    expect((await Product.findById(good._id)).codeNumber).toBe(30);
   });
 });
 

@@ -21,6 +21,7 @@
     "reset:keep-parties": "node src/scripts/resetKeepParties.js",
     "zero:banks": "node src/scripts/zeroBanks.js",
     "delete:banks": "node src/scripts/deleteBanks.js",
+    "recompute:codes": "node src/scripts/recomputeCodeNumbers.js",
     "cleanup:empty-drafts": "node src/scripts/cleanupEmptyDrafts.js",
     "resequence:pages": "node src/scripts/resequencePages.js"
   },
