@@ -24,6 +24,7 @@ export default function Products() {
   const [panel, setPanel] = useState(null); // 'adjust' | 'add' | null
   const [confirmId, setConfirmId] = useState(null); // row awaiting a 2nd click to delete
   const [deletingId, setDeletingId] = useState(null); // delete in flight
+  const [fixing, setFixing] = useState(false); // "Fix code prices" in flight
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +59,29 @@ export default function Products() {
     [load]
   );
 
+  // Re-derive stored code numbers for point-value codes (e.g. K24.50) entered
+  // before the decimal-aware fix, so their cost/profit corrects. Idempotent.
+  const fixCodePrices = useCallback(async () => {
+    setError('');
+    setFixing(true);
+    try {
+      const res = await apiFetch('/products/recompute-codes', { method: 'POST' });
+      const n = res.changed ?? 0;
+      setMsg(
+        n === 0
+          ? 'All code prices are already correct — nothing to fix.'
+          : `Fixed ${n} code price${n === 1 ? '' : 's'}: ${res.fixed
+              .map((f) => f.code)
+              .join(', ')}.`
+      );
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFixing(false);
+    }
+  }, [load]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -74,6 +98,14 @@ export default function Products() {
         <h1 className="text-lg font-bold text-stone-800">Products &amp; Stock</h1>
         {isAdmin && (
           <div className="flex gap-2">
+            <button
+              onClick={fixCodePrices}
+              disabled={fixing}
+              title="Recheck every code with a dot in it (e.g. K24.50) and correct its price"
+              className="rounded border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 disabled:opacity-50"
+            >
+              {fixing ? 'Fixing…' : 'Fix code prices'}
+            </button>
             <button
               onClick={() => setPanel(panel === 'adjust' ? null : 'adjust')}
               className="rounded border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100"
