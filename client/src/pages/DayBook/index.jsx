@@ -508,9 +508,17 @@ export default function DayBook() {
     readOnly: !editable,
   });
 
+  const postClick = () =>
+    unresolved > 0
+      ? setMsg({
+          kind: 'err',
+          text: `Fix ${unresolved} unrecognised product code${unresolved > 1 ? 's' : ''} before posting (highlighted red).`,
+        })
+      : setShowPost(true);
+
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Header: date nav + status + actions */}
+      {/* Header: date nav + status (primary actions are in the sticky bar) */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
@@ -549,42 +557,8 @@ export default function DayBook() {
           </label>
         </div>
 
-        <div className="flex items-center gap-2">
-          {editable && (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={busy}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100 disabled:opacity-60"
-              >
-                Save draft
-              </button>
-              <button
-                onClick={() =>
-                  unresolved > 0
-                    ? setMsg({
-                        kind: 'err',
-                        text: `Fix ${unresolved} unrecognised product code${unresolved > 1 ? 's' : ''} before posting (highlighted red).`,
-                      })
-                    : setShowPost(true)
-                }
-                disabled={busy}
-                className="rounded bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-60"
-              >
-                Post day
-              </button>
-            </>
-          )}
-          {!editable && isAdmin && (
-            <button
-              onClick={handleUnpost}
-              disabled={busy}
-              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
-            >
-              Unpost
-            </button>
-          )}
-        </div>
+        {/* Primary actions live in the sticky action bar at the bottom, so they
+            stay reachable while the operator scrolls the long sheet. */}
       </div>
 
       {msg && (
@@ -674,6 +648,59 @@ export default function DayBook() {
       <p className="mt-2 text-center text-[11px] text-stone-400">
         Tab moves across a row · Enter commits a line · Esc clears it · type a code to search
       </p>
+
+      {/* Sticky action bar — the day's bottom line + Save/Post stay in view while
+          scrolling the long sheet, so the operator never hunts for them. */}
+      {!loading && (
+        <div className="sticky bottom-0 z-20 mt-3 rounded-t-xl border border-b-0 border-stone-300 bg-white/95 px-3 py-2 shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.12)] backdrop-blur supports-[backdrop-filter]:bg-white/80">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-4 sm:gap-7">
+              <BarStat label={<L en="Total Sale" ur="کل فروخت" />} value={footerTotals.totalSale} />
+              {showProfit && (
+                <BarStat label={<L k="profitTile" />} value={footerTotals.totalProfit} signed />
+              )}
+              <BarStat
+                label={<L en="Net Cash" ur="نقد موجود" />}
+                value={footerTotals.netCash}
+                strong
+                signed
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {editable ? (
+                <>
+                  <button
+                    onClick={handleSave}
+                    disabled={busy}
+                    className="rounded-lg border border-stone-300 px-3.5 py-2 text-sm font-medium hover:bg-stone-100 disabled:opacity-60"
+                  >
+                    {busy ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={postClick}
+                    disabled={busy}
+                    className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-stone-700 disabled:opacity-60"
+                  >
+                    Post day
+                  </button>
+                </>
+              ) : isAdmin ? (
+                <button
+                  onClick={handleUnpost}
+                  disabled={busy}
+                  className="rounded-lg border border-red-300 px-3.5 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  Unpost
+                </button>
+              ) : (
+                <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-700">
+                  Posted
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showPost && (
         <PostDialog
@@ -783,6 +810,24 @@ function CreditSaleSection({ rows, total }) {
         </table>
       </div>
     </section>
+  );
+}
+
+// One figure in the sticky action bar. `strong` enlarges (Net Cash); `signed`
+// turns negatives red (profit / net cash may go negative — that's normal).
+function BarStat({ label, value, strong, signed }) {
+  const neg = signed && value < 0;
+  return (
+    <div className="flex flex-col leading-tight">
+      <span className="text-[9px] font-medium uppercase tracking-wide text-stone-400">{label}</span>
+      <span
+        className={`font-mono tabular-nums ${strong ? 'text-base font-bold' : 'text-sm font-semibold'} ${
+          neg ? 'text-red-600' : 'text-stone-800'
+        }`}
+      >
+        {money(value)}
+      </span>
+    </div>
   );
 }
 

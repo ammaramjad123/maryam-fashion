@@ -339,9 +339,14 @@ export default function LineGrid({
   // Per-section totals (live), using the SAME amount/profit helpers as the cells
   // (amountOf, profitOf → lib/profit.js) so the row can never disagree with the
   // cells, the footer summary, or the posted totals. Blank/half rows sum to 0.
-  const hasRealLine = rows.some(
+  const realRows = rows.filter(
     (r) => r.productId || r.headId || r.partyId || num(r.amount) || num(r.qty)
   );
+  const hasRealLine = realRows.length > 0;
+  // The section's headline figure, shown live in its header: the money/amount
+  // column total (Sale/Purchase → amount; the cash/expense sections → money).
+  const primaryCol =
+    columns.find((c) => c.type === 'amount') || columns.find((c) => c.type === 'money');
   function columnTotal(col) {
     switch (col.type) {
       case 'qty':
@@ -359,12 +364,32 @@ export default function LineGrid({
     }
   }
 
+  const primaryTotal = primaryCol ? columnTotal(primaryCol) : null;
+
   return (
-    <section className="mb-5">
-      <div className={`flex items-center gap-2 border-l-4 ${accent} bg-stone-100 px-2 py-1`}>
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-stone-600">
+    <section className="mb-4">
+      <div
+        className={`flex items-center justify-between gap-2 border-l-4 ${accent} bg-stone-50 px-3 py-1.5`}
+      >
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-500">
           {title}
         </h3>
+        {hasRealLine && (
+          <div className="flex items-baseline gap-2.5 text-[11px]">
+            <span className="text-stone-400">
+              {realRows.length} {realRows.length === 1 ? 'line' : 'lines'}
+            </span>
+            {primaryTotal != null && (
+              <span
+                className={`font-mono font-semibold tabular-nums ${
+                  primaryTotal < 0 ? 'text-red-600' : 'text-stone-700'
+                }`}
+              >
+                {fmt(primaryTotal)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto border border-t-0 border-stone-200">
         <table className="w-full border-collapse">

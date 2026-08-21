@@ -25,13 +25,43 @@ function Cell({ label, value, strong, negative }) {
  * from the paper. `t` is the live/authoritative totals object. When `showProfit`
  * is false (a user without viewProfit) the two profit rows are hidden.
  */
+// A big at-a-glance figure. `accent` highlights the day's bottom line (Net Cash).
+function Tile({ label, value, signed, accent }) {
+  const neg = signed && value < 0;
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 ${
+        accent ? 'border-stone-300 bg-white shadow-sm' : 'border-stone-200 bg-white/70'
+      }`}
+    >
+      <div className="text-[10px] font-medium uppercase tracking-wide text-stone-400">{label}</div>
+      <div
+        className={`mt-0.5 font-mono text-xl font-bold tabular-nums ${
+          neg ? 'text-red-600' : accent ? 'text-stone-900' : 'text-stone-800'
+        }`}
+      >
+        {money(value)}
+      </div>
+    </div>
+  );
+}
+
 export default function TotalsFooter({ t, openingCash, showProfit = true }) {
   return (
-    <div className="mt-2 border border-stone-300 bg-[#FCFBF8]">
-      <div className="border-b border-stone-300 bg-stone-100 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-stone-600">
+    <div className="mt-2 overflow-hidden rounded-lg border border-stone-300 bg-[#FCFBF8]">
+      <div className="border-b border-stone-300 bg-stone-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
         Day Summary
       </div>
-      <div className="grid grid-cols-1 gap-x-8 px-3 py-2 sm:grid-cols-2 lg:grid-cols-4">
+
+      {/* At-a-glance headline figures */}
+      <div className="grid grid-cols-2 gap-3 px-3 pt-3 sm:grid-cols-3">
+        <Tile label="Total Sale" value={t.totalSale} />
+        {showProfit && <Tile label="Total Profit" value={t.totalProfit} signed />}
+        <Tile label="Net Cash" value={t.netCash} accent signed />
+      </div>
+
+      {/* Full breakdown (the paper's four-column block) */}
+      <div className="grid grid-cols-1 gap-x-8 px-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Cell label="Credit Sale" value={t.creditSale} />
           <Cell label="Cash Sale" value={t.cashSale} />
