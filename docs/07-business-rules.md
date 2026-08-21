@@ -343,6 +343,19 @@ things together: **billNo · productCode · partyName (blank = cash)**.
 Bill numbers are entered by the operator (they come from the physical bill book), auto-incrementing
 as a convenience but always editable.
 
+**Manual bill grouping (owner-confirmed).** One physical bill can cover several lines. A line either
+**starts a new bill** or **joins the bill above** (sharing its number). Two grouping paths, in the one
+`isBillStart(line, prevLine)` helper (`server/src/utils/billNo.js`, mirrored in `client/src/lib/billNo.js`):
+
+- **Automatic** — consecutive lines for the **same credit party** are one bill.
+- **Explicit** — a line flagged `sameBill: true` joins the bill above **regardless of party**, so several
+  **cash** lines (no party) can form one bill. This is the operator's grouping control (the `↳` toggle in
+  the Bill # cell). Without it, every cash line is its own bill.
+
+The number is **stored on the bill's first line only**; joined/continuation lines store no number and print
+blank (`displayBillNos`). `sameBill` is per sale line; it affects **only the bill number**, never cash/credit
+(which is still decided by the party, R2).
+
 ---
 
 ## R9.2. Previous-day reminders across the top of the sheet
@@ -388,6 +401,30 @@ Docs previously assumed no bank account (old Q3/Q4). That is now **false** — b
 **separate ledger**, so the daily cash sheet stays exactly as built. When shop money actually moves
 via a bank (rather than cash), that is a future question (see 08 Q11) — for now the bank ledger is
 standalone bookkeeping the owner maintains by hand-entry, just like his paper "Position" page.
+
+---
+
+## R9.4. Per-line discount on a sale — PROFIT ONLY (owner-confirmed)
+
+Distinct from the day-level `Discount on Sale` (R9). Each **sale line** carries an optional
+`discount` (Rs, default 0) that the operator types in the **Disc** column.
+
+> **It reduces PROFIT only.** The line's `amount` stays `qty × rate`, so `cashSale`, `creditSale`,
+> `netCash` and the party's ledger are **untouched**. Only the line's `P` and `totalProfit` drop by it:
+>
+> ```
+> line P (sale) = (rate − costRate) × qty − discount     (signed; never clamped)
+> ```
+
+Frozen on the line at post time (`posting.service.js`), so every report/PDF/Excel shows the net profit.
+The single on-screen/live formula is `lineProfit()` (`client/src/lib/profit.js`) — the grid P cell, the
+live totals and the posted totals all read it, so they can never drift.
+
+**Orthogonal to R9.** The day-level discount trims **cash** (`cashSaleLessDisc`); the per-line discount
+trims **profit**. They hit different totals, so both may be used together with no double-count.
+
+Not a `costRate` change (R6.1) and not the purchase formula (R8) — cost is still the code. `discount` is
+**not** a sensitive key, so operators may enter it even though they never see the resulting profit.
 
 ---
 

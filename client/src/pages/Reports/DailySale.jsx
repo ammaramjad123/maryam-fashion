@@ -364,9 +364,9 @@ export default function DailySale() {
 
   function exportCsv() {
     const rows = [['Daily Sale & Expense Sheet', prettyDay(date)], []];
-    rows.push(['SALE'], ['Bill', 'Product', 'Party', 'Qty', 'Rate', 'Amount', 'Profit']);
+    rows.push(['SALE'], ['Bill', 'Product', 'Party', 'Qty', 'Rate', 'Amount', 'Discount', 'Profit']);
     data.sales.forEach((s) =>
-      rows.push([s.billNo ?? '', s.productCode, s.partyName || 'Cash', s.qty, s.rate, s.amount, s.profit])
+      rows.push([s.billNo ?? '', s.productCode, s.partyName || 'Cash', s.qty, s.rate, s.amount, s.discount || 0, s.profit])
     );
     rows.push([], ['PURCHASE'], ['Product', 'Supplier', 'Qty', 'Rate', 'Amount', 'Profit']);
     data.purchases.forEach((p) =>

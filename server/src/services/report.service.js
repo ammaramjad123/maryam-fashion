@@ -88,6 +88,7 @@ export async function getDailySale(ymd) {
     isCash: !l.partyId,
     qty: l.qty,
     rate: l.rate,
+    discount: l.discount || 0, // per-line discount (already folded into profit)
     amount: l.amount,
     profit: l.profit,
   }));

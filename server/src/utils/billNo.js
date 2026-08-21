@@ -6,9 +6,15 @@
 //
 // isBillStart decides whether a line begins a new bill (relative to the line
 // above it). partyId may be an ObjectId or string; compare as strings.
+//   • sameBill = the operator explicitly joined this line to the bill above
+//     (works for cash lines too — the manual grouping control, docs/07 R9.1).
+//   • otherwise a cash line is its own bill, and a credit line continues only
+//     while the party is unchanged.
 export function isBillStart(line, prevLine) {
-  if (!line || !line.partyId) return true; // cash line → its own bill
+  if (!line) return true;
   if (!prevLine) return true; // first line of the section
+  if (line.sameBill) return false; // explicit: continue the bill above (any/no party)
+  if (!line.partyId) return true; // cash line → its own bill
   return String(prevLine.partyId || '') !== String(line.partyId); // party changed → new bill
 }
 

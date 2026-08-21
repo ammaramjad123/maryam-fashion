@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { addDays, prettyDay, isValidYmd } from '../../lib/day.js';
 import { num, money } from '../../lib/format.js';
 import { lineProfit } from '../../lib/profit.js';
-import { assignBillNos } from '../../lib/billNo.js';
+import { assignBillNos, billNumbersForDisplay } from '../../lib/billNo.js';
 import LineGrid from './LineGrid.jsx';
 import TotalsFooter from './TotalsFooter.jsx';
 import PostDialog from './PostDialog.jsx';
@@ -15,12 +15,14 @@ import { L } from '../../lib/i18n.jsx';
 const BLANK = {
   goods: () => ({
     billNo: '',
+    sameBill: false,
     productId: null,
     productCode: '',
     partyId: null,
     partyName: '',
     qty: '',
     rate: '',
+    discount: '',
   }),
   cash: () => ({ partyId: null, partyName: '', narration: '', amount: '' }),
   expense: () => ({ headId: null, headName: '', narration: '', amount: '' }),
@@ -141,12 +143,14 @@ export default function DayBook() {
       const hMap = headMapRef.current;
       const toGoods = (l) => ({
         billNo: l.billNo ?? '',
+        sameBill: !!l.sameBill,
         productId: l.productId,
         productCode: pMeta[l.productId]?.code || '',
         partyId: l.partyId || null,
         partyName: l.partyId ? pMap[l.partyId]?.name || '' : '',
         qty: l.qty,
         rate: l.rate,
+        discount: l.discount ? String(l.discount) : '',
       });
       setRows({
         sales: normalize((day.sales || []).map(toGoods), 'goods'),
@@ -258,9 +262,15 @@ export default function DayBook() {
         prev.amount += a;
         creditByParty.set(r.partyId, prev);
       } else cashSale += a;
-      // Same shared formula as the grid's P cell (lib/profit.js).
+      // Same shared formula as the grid's P cell (lib/profit.js) — the per-line
+      // discount reduces profit only (never cashSale/creditSale above).
       saleProfit +=
-        lineProfit({ rate: r.rate, qty: r.qty, cost: productMeta[r.productId]?.costRate }) || 0;
+        lineProfit({
+          rate: r.rate,
+          qty: r.qty,
+          cost: productMeta[r.productId]?.costRate,
+          discount: r.discount,
+        }) || 0;
     }
     for (const r of rows.purchases) {
       if (!r.productId) continue;
@@ -304,9 +314,12 @@ export default function DayBook() {
 
   const footerTotals = status === 'POSTED' && postedTotals ? postedTotals : liveTotals;
 
-  // Effective bill numbers for the sale grid (auto or override), aligned to
-  // rows.sales — passed to the grid so the Bill # cell shows the auto number.
-  const saleBillNos = useMemo(() => assignBillNos(rows.sales, baseBillNo), [rows.sales, baseBillNo]);
+  // Bill numbers for the sale grid, forward-filled so joined rows display the
+  // shared number (auto or override), aligned to rows.sales.
+  const saleBillNos = useMemo(
+    () => billNumbersForDisplay(rows.sales, baseBillNo),
+    [rows.sales, baseBillNo]
+  );
 
   // Reverse index: typed code (case-insensitive) → product, so "k30" resolves to
   // K30 without needing the dropdown.
@@ -348,12 +361,14 @@ export default function DayBook() {
       discountOnSale: num(discount) || 0,
       sales: realSales.map((r, i) => ({
         // Per-BILL number (docs/07 R9.1): the auto/override number on a bill-start
-        // row, nothing on a continuation row (blank on the sheet).
+        // row, nothing on a continuation/joined row (blank on the sheet).
         billNo: bnos[i] == null ? undefined : bnos[i],
+        sameBill: !!r.sameBill, // manual bill grouping
         productId: r.productId,
         partyId: r.partyId || null,
         qty: Number(r.qty),
         rate: Number(r.rate),
+        discount: Number(r.discount) || 0, // per-line discount (reduces profit only)
       })),
       purchases: rows.purchases
         .filter((r) => r.productId)
@@ -443,16 +458,20 @@ export default function DayBook() {
     return <div className="p-4 text-sm text-red-600">Invalid date in the URL. Use YYYY-MM-DD.</div>;
   }
 
-  const goodsCols = (partyLabel, partyOptional, profitCompute, withBill = false) => [
+  const goodsCols = (partyLabel, partyOptional, profitCompute, withBill = false, withDiscount = false) => [
     // Bill number precedes the code on sale lines (docs/07 R9.1): "12037 k44".
     ...(withBill
-      ? [{ key: 'billNo', type: 'billno', label: <L en="Bill #" ur="بل نمبر" />, width: '78px' }]
+      ? [{ key: 'billNo', type: 'billno', label: <L en="Bill #" ur="بل نمبر" />, width: '96px' }]
       : []),
     { key: 'productCode', type: 'product', label: <L k="product" />, width: '110px' },
     { key: 'partyName', type: 'party', label: partyLabel, width: '180px', optional: partyOptional },
     { key: 'qty', type: 'qty', label: <L k="qty" />, width: '72px', align: 'right' },
     { key: 'rate', type: 'rate', label: <L k="rate" />, width: '84px', align: 'right' },
     { key: 'amount', type: 'amount', label: <L k="amount" />, width: '104px', align: 'right' },
+    // Per-line discount (Rs) — reduces PROFIT only; sales only.
+    ...(withDiscount
+      ? [{ key: 'discount', type: 'discount', label: <L en="Disc" ur="رعایت" />, width: '78px', align: 'right', placeholder: '0' }]
+      : []),
     // The P (profit) column only for users who may view profit.
     ...(showProfit
       ? [
@@ -598,7 +617,7 @@ export default function DayBook() {
             <LineGrid
               title={<L k="sale" />}
               accent="border-emerald-400"
-              columns={goodsCols(<L en="Name (party)" ur="نام (کھاتہ)" />, true, 'saleProfit', true)}
+              columns={goodsCols(<L en="Name (party)" ur="نام (کھاتہ)" />, true, 'saleProfit', true, true)}
               billNos={saleBillNos}
               {...gridProps('sales')}
             />

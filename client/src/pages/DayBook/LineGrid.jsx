@@ -5,7 +5,7 @@ import { lineProfit } from '../../lib/profit.js';
 import { isBillStart } from '../../lib/billNo.js';
 
 // Editable column types the grid knows how to render.
-const EDITABLE = new Set(['product', 'party', 'head', 'qty', 'rate', 'money', 'text', 'billno']);
+const EDITABLE = new Set(['product', 'party', 'head', 'qty', 'rate', 'discount', 'money', 'text', 'billno']);
 
 export default function LineGrid({
   title,
@@ -105,6 +105,7 @@ export default function LineGrid({
       rate: row.rate,
       qty: row.qty,
       cost: meta?.costRate,
+      discount: row.discount, // per-line discount reduces sale profit only
       kind: col.compute === 'purchaseProfit' ? 'purchase' : 'sale',
     });
   }
@@ -199,6 +200,7 @@ export default function LineGrid({
         );
       case 'qty':
       case 'rate':
+      case 'discount':
       case 'money':
       case 'text': {
         const isNumeric = col.type !== 'text';
@@ -225,34 +227,73 @@ export default function LineGrid({
         );
       }
       case 'billno': {
-        // Per-bill, not per-line (docs/07 R9.1). The number is AUTO-generated for
-        // each bill start; continuation rows (same credit party) show blank. The
-        // shown value is the operator override if typed, else the auto number.
-        const start = isBillStart(row, rows[rowIndex - 1]);
-        const auto = billNos ? billNos[rowIndex] : null;
+        // Per-bill, not per-line (docs/07 R9.1). A bill starts automatically; the
+        // ↳ toggle lets the operator JOIN this line to the bill above (sharing its
+        // number) or SPLIT it back into its own bill — the manual grouping control.
+        const prevRow = rows[rowIndex - 1];
+        const canJoin = !!(prevRow && prevRow.productId) && !!row.productId;
+        const start = isBillStart(row, prevRow);
+        const shared = billNos ? billNos[rowIndex] : null; // forward-filled shared number
         const typed = row.billNo !== '' && row.billNo != null;
-        const shown = typed ? row.billNo : start && auto != null ? String(auto) : '';
-        return (
-          <input
-            ref={setRef}
-            value={shown}
-            inputMode="numeric"
-            placeholder={start ? 'auto' : '↳'}
-            title={start ? 'Bill number (auto — editable to override)' : 'Same bill as the row above'}
-            onChange={(e) => onCellChange(rowIndex, { billNo: e.target.value.replace(/[^0-9]/g, '') })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commit(rowIndex);
-              } else if (e.key === 'Escape') {
-                onDeleteRow(rowIndex);
-              }
-            }}
-            className={`w-full bg-transparent px-1.5 py-1 text-[13px] outline-none focus:bg-amber-50/70 ${
-              start ? (typed ? '' : 'text-stone-400') : 'text-stone-300 placeholder:text-stone-300'
+
+        const joinToggle = canJoin ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() =>
+              onCellChange(rowIndex, row.sameBill ? { sameBill: false } : { sameBill: true, billNo: '' })
+            }
+            title={
+              row.sameBill
+                ? 'Same bill as the row above — click to start a new bill'
+                : 'New bill — click to join the bill above (share its number)'
+            }
+            className={`shrink-0 rounded px-1 text-[13px] leading-none ${
+              row.sameBill
+                ? 'bg-amber-200 text-amber-800'
+                : 'text-stone-300 hover:bg-stone-100 hover:text-stone-500'
             }`}
-            autoComplete="off"
-          />
+          >
+            ↳
+          </button>
+        ) : (
+          <span className="w-[18px] shrink-0" />
+        );
+
+        if (!start) {
+          // Joined row: show the shared bill number greyed, no editable field.
+          return (
+            <div className="flex items-center gap-0.5 px-0.5 py-1">
+              {joinToggle}
+              <span className="text-[13px] tabular-nums text-stone-400">{shared ?? ''}</span>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-0.5">
+            {joinToggle}
+            <input
+              ref={setRef}
+              value={typed ? row.billNo : shared != null ? String(shared) : ''}
+              inputMode="numeric"
+              placeholder="auto"
+              title="Bill number (auto — type to override)"
+              onChange={(e) => onCellChange(rowIndex, { billNo: e.target.value.replace(/[^0-9]/g, '') })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commit(rowIndex);
+                } else if (e.key === 'Escape') {
+                  onDeleteRow(rowIndex);
+                }
+              }}
+              className={`w-full bg-transparent px-1 py-1 text-[13px] outline-none focus:bg-amber-50/70 ${
+                typed ? '' : 'text-stone-400'
+              }`}
+              autoComplete="off"
+            />
+          </div>
         );
       }
       case 'amount': {
@@ -305,6 +346,8 @@ export default function LineGrid({
     switch (col.type) {
       case 'qty':
         return rows.reduce((s, r) => s + (num(r.qty) || 0), 0);
+      case 'discount':
+        return rows.reduce((s, r) => s + (num(r.discount) || 0), 0);
       case 'amount':
         return rows.reduce((s, r) => s + (amountOf(r) || 0), 0);
       case 'money':
@@ -428,11 +471,12 @@ function ReadOnlyCell({ row, col, prevRow, amountOf, profitOf }) {
       return <div className={base}>{isBillStart(row, prevRow) ? (row.billNo ?? '') : ''}</div>;
     case 'qty':
     case 'rate':
+    case 'discount':
     case 'money': {
       const v = num(row[col.key]);
       return (
         <div className={`${base} text-right tabular-nums ${v < 0 ? 'text-red-600' : ''}`}>
-          {fmt(row[col.key])}
+          {fmt(row[col.key], { blankZero: col.type === 'discount' })}
         </div>
       );
     }

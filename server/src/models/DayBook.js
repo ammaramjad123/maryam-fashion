@@ -8,13 +8,17 @@ const oid = Schema.Types.ObjectId;
 const saleSchema = new Schema(
   {
     billNo: Number, // physical bill-book number (docs/07 R9.1); operator-entered
+    // Operator marks this line as belonging to the SAME bill as the row above,
+    // regardless of party. Lets several cash lines share one bill number.
+    sameBill: { type: Boolean, default: false },
     partyId: { type: oid, ref: 'Party', default: null }, // null = CASH sale
     productId: { type: oid, ref: 'Product' },
     qty: Number, // MAY be negative (a return)
     rate: Number,
+    discount: { type: Number, default: 0 }, // per-line discount (Rs) — reduces PROFIT only
     amount: Number, // qty * rate (signed) — set at post time
     costRate: Number, // frozen at post time — DERIVED from the code (R6)
-    profit: Number, // (rate − costRate) * qty (signed) — set at post time
+    profit: Number, // (rate − costRate) * qty − discount (signed) — set at post time
     voucherNo: Number,
   },
   { _id: false }

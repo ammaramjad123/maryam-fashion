@@ -33,6 +33,9 @@ export function validateSections(payload = {}) {
     if (num(l.qty) === 0 || Number.isNaN(num(l.qty)))
       errors.push(`sales[${i}].qty must be non-zero (negatives are allowed for returns)`);
     if (Number.isNaN(num(l.rate)) || num(l.rate) < 0) errors.push(`sales[${i}].rate must be >= 0`);
+    // Per-line discount is optional; when present it must be a non-negative number.
+    if (l.discount !== undefined && l.discount !== '' && !(num(l.discount) >= 0))
+      errors.push(`sales[${i}].discount must be >= 0`);
   });
 
   (payload.purchases || []).forEach((l, i) => {

@@ -116,11 +116,15 @@ export async function postDayBook(dayBookId) {
   const sales = (dayBook.sales || []).map((l, i) => {
     const product = productById.get(String(l.productId));
     const costRate = costRateForProduct(product, setting);
+    const discount = l.discount || 0; // per-line discount (Rs) — reduces profit only
     return {
       ...l,
-      amount: l.qty * l.rate,
+      discount,
+      amount: l.qty * l.rate, // gross sale — discount does NOT touch amount/cash
       costRate,
-      profit: (l.rate - costRate) * l.qty, // signed; never clamped to zero
+      // Discount is subtracted from profit only (owner-chosen): profit falls by
+      // the discount while cash and the ledger stay at the full amount.
+      profit: (l.rate - costRate) * l.qty - discount, // signed; never clamped
       voucherNo: l.voucherNo ?? 12000 + i,
     };
   });

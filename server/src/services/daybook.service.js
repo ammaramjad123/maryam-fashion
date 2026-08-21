@@ -56,10 +56,12 @@ async function nextBillNo() {
 const num = (v) => (v === '' || v === null || v === undefined ? undefined : Number(v));
 const cleanSaleOrPurchase = (l) => ({
   billNo: num(l.billNo), // docs/07 R9.1 — undefined when blank
+  sameBill: !!l.sameBill, // manual bill grouping (sales); ignored on purchases
   partyId: l.partyId || null,
   productId: l.productId,
   qty: Number(l.qty),
   rate: Number(l.rate),
+  discount: Number(l.discount) || 0, // per-line discount (sales); reduces profit only
 });
 const cleanCashLine = (l) => ({
   partyId: l.partyId,

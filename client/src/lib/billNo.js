@@ -1,9 +1,12 @@
 // Bill numbers are per-BILL, not per-line (docs/07 R9.1). A bill is a cash sale
-// line (own bill), or a run of consecutive sale lines for the SAME credit party
-// (one bill, number on the first row only). Mirrors server/src/utils/billNo.js.
+// line (own bill), or a run of consecutive sale lines that share one bill — by
+// the operator joining them (sameBill), or being the SAME credit party. The
+// number prints on the first row only. Mirrors server/src/utils/billNo.js.
 export function isBillStart(line, prevLine) {
-  if (!line || !line.partyId) return true; // cash line → its own bill
+  if (!line) return true;
   if (!prevLine) return true; // first line
+  if (line.sameBill) return false; // operator joined this line to the bill above
+  if (!line.partyId) return true; // cash line → its own bill
   return String(prevLine.partyId || '') !== String(line.partyId); // party changed → new bill
 }
 
@@ -21,5 +24,22 @@ export function assignBillNos(sales, base) {
     const eff = Number.isNaN(typed) ? n : typed; // override wins
     n = eff + 1;
     return eff;
+  });
+}
+
+// For DISPLAY in the entry grid: the effective bill number on EVERY product row,
+// forward-filled onto joined/continuation rows so the operator can see which
+// rows share a bill. (assignBillNos keeps continuation rows null, which is what
+// the payload stores — the number lives only on the bill's first row.)
+export function billNumbersForDisplay(sales, base) {
+  const raw = assignBillNos(sales, base);
+  let last = null;
+  return raw.map((v, i) => {
+    if (!sales[i] || !sales[i].productId) return null; // blank row
+    if (v != null) {
+      last = v;
+      return v;
+    }
+    return last; // joined row → the shared bill number
   });
 }
