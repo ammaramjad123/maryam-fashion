@@ -60,8 +60,9 @@ function dailySaleWorkbook(data) {
 
   const t = data.totals || {};
   const showProfit = !!(data.totals && 'totalProfit' in data.totals);
-  const gw = showProfit ? 5 : 4; // Name|Qty|@|Amt(|P)
-  const nCols = 2 * gw + 8;
+  const gw = showProfit ? 5 : 4; // PURCHASE width: Name|Qty|@|Amt(|P)
+  const sw = gw + 1; // SALE width adds a Disc column: Name|Qty|@|Amt|Disc(|P)
+  const nCols = sw + gw + 8;
 
   const sales = data.sales || [];
   const purchases = data.purchases || [];
@@ -78,7 +79,7 @@ function dailySaleWorkbook(data) {
   ws.mergeCells(1, 1, 1, nCols);
   put(ws, 1, 1, 'Daily Sale And Expenses Sheet', { bold: true }).border = undefined;
   ws.getCell(1, 1).font = { bold: true, size: 13 };
-  ws.mergeCells(2, 1, 2, gw + 1);
+  ws.mergeCells(2, 1, 2, sw + 1);
   ws.getCell(2, 1).value = `Date: ${longDate(data.date)}`;
   ws.mergeCells(2, nCols - 5, 2, nCols);
   ws.getCell(2, nCols - 5).value =
@@ -90,7 +91,7 @@ function dailySaleWorkbook(data) {
   // --- section header row (merged) ---
   const HR = 4; // section-header row
   const sections = [
-    ['S A L E', gw], ['P U R C H A S E', gw], ['Cash Receipt', 2],
+    ['S A L E', sw], ['P U R C H A S E', gw], ['Cash Receipt', 2],
     ['Cash Payment', 2], ['Shop Exp.', 2], ['Credit Sale', 2],
   ];
   let c = 1;
@@ -106,8 +107,11 @@ function dailySaleWorkbook(data) {
 
   // --- sub-header row ---
   const SH = HR + 1;
-  const goodsSub = showProfit ? ['Name', 'Qty', '@', 'Amt', 'P'] : ['Name', 'Qty', '@', 'Amt'];
-  const subs = [...goodsSub, ...goodsSub, 'Name', 'Amt', 'Name', 'Amt', 'Name', 'Amt', 'Name', 'Amt'];
+  const purSub = showProfit ? ['Name', 'Qty', '@', 'Amt', 'P'] : ['Name', 'Qty', '@', 'Amt'];
+  const saleSub = showProfit
+    ? ['Name', 'Qty', '@', 'Amt', 'Disc', 'P']
+    : ['Name', 'Qty', '@', 'Amt', 'Disc'];
+  const subs = [...saleSub, ...purSub, 'Name', 'Amt', 'Name', 'Amt', 'Name', 'Amt', 'Name', 'Amt'];
   subs.forEach((label, i) => put(ws, SH, i + 1, label, { bold: true, align: i === 0 ? 'left' : undefined }));
 
   // --- data rows ---
@@ -115,19 +119,20 @@ function dailySaleWorkbook(data) {
   let r = SH + 1;
   for (let i = 0; i < maxRows; i++) {
     let col = 1;
-    const goods = (l, nameFn) => {
+    const goods = (l, nameFn, withDisc) => {
       put(ws, r, col++, l ? nameFn(l) : null);
       put(ws, r, col++, l ? Number(l.qty) : null, { numFmt: INT });
       put(ws, r, col++, l ? Number(l.rate) : null, { numFmt: INT });
       put(ws, r, col++, l ? Number(l.amount) : null, { numFmt: INT });
+      if (withDisc) put(ws, r, col++, l ? Number(l.discount || 0) || null : null, { numFmt: INT });
       if (showProfit) put(ws, r, col++, l ? Number(l.profit) : null, { numFmt: INT });
     };
     const amt = (l, nameKey) => {
       put(ws, r, col++, l ? l[nameKey] : null);
       put(ws, r, col++, l ? Number(l.amount) : null, { numFmt: INT });
     };
-    goods(sales[i], saleName);
-    goods(purchases[i], (l) => `${l.productCode}${l.partyName ? ' ' + l.partyName : ''}`);
+    goods(sales[i], saleName, true);
+    goods(purchases[i], (l) => `${l.productCode}${l.partyName ? ' ' + l.partyName : ''}`, false);
     amt(receipts[i], 'partyName');
     amt(payments[i], 'partyName');
     amt(expenses[i], 'headName');
@@ -141,6 +146,7 @@ function dailySaleWorkbook(data) {
   put(ws, r, col++, sum(sales, 'qty'), { numFmt: INT, bold: true });
   put(ws, r, col++, null, { bold: true });
   put(ws, r, col++, Number(t.totalSale || 0), { numFmt: INT, bold: true });
+  put(ws, r, col++, sum(sales, 'discount') || null, { numFmt: INT, bold: true }); // sale Disc total
   if (showProfit) put(ws, r, col++, sum(sales, 'profit'), { numFmt: INT, bold: true });
   put(ws, r, col++, null, { bold: true }); // purchase Name
   put(ws, r, col++, purchases.length ? sum(purchases, 'qty') : null, { numFmt: INT, bold: true });
@@ -160,6 +166,7 @@ function dailySaleWorkbook(data) {
   const col1 = [
     ['Credit Sale', t.creditSale], ['Cash Sale', t.cashSale],
     ['Total Sale', t.totalSale], ['Discount on Sale', t.discountOnSale || 0],
+    ['Line Discount', sum(sales, 'discount')],
   ];
   const col2 = [
     ...(showProfit ? [['Profit Sale/Pur', t.totalProfit], ['Total Profit', t.totalProfit]] : []),
@@ -189,11 +196,11 @@ function dailySaleWorkbook(data) {
   ws.getCell(bankRow + 3, 1).value = 'Signature: ______________________';
 
   // column widths + freeze the header rows
-  ws.getColumn(1).width = 22;
-  ws.getColumn(gw + 1).width = 22;
-  for (let i = 2; i <= gw; i++) ws.getColumn(i).width = 10;
-  for (let i = gw + 2; i <= 2 * gw; i++) ws.getColumn(i).width = 10;
-  for (let i = 2 * gw + 1; i <= nCols; i += 2) {
+  ws.getColumn(1).width = 22; // Sale Name
+  ws.getColumn(sw + 1).width = 22; // Purchase Name
+  for (let i = 2; i <= sw; i++) ws.getColumn(i).width = 10; // sale Qty/@/Amt/Disc(/P)
+  for (let i = sw + 2; i <= sw + gw; i++) ws.getColumn(i).width = 10; // purchase cols
+  for (let i = sw + gw + 1; i <= nCols; i += 2) {
     ws.getColumn(i).width = 16;
     ws.getColumn(i + 1).width = 11;
   }

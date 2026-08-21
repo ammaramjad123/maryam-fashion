@@ -66,7 +66,8 @@ export function DailySaleSheet({ data, date }) {
   const t = data.totals || {};
   // Profit columns/rows only when the server did not strip profit (viewProfit).
   const showProfit = !!(data.totals && 'totalProfit' in data.totals);
-  const goodsWidth = showProfit ? 5 : 4; // Name|Qty|@|Amt(|P)
+  const purWidth = showProfit ? 5 : 4; // Name|Qty|@|Amt(|P)
+  const saleWidth = purWidth + 1; // SALE adds a Disc column
 
   const sales = data.sales || [];
   const purchases = data.purchases || [];
@@ -86,6 +87,7 @@ export function DailySaleSheet({ data, date }) {
 
   const sum = (arr, k) => arr.reduce((s, r) => s + Number(r[k] || 0), 0);
   const saleQty = sum(sales, 'qty');
+  const saleDisc = sum(sales, 'discount');
   const saleProfit = sum(sales, 'profit');
   const purQty = sum(purchases, 'qty');
   const purAmt = sum(purchases, 'amount');
@@ -94,7 +96,7 @@ export function DailySaleSheet({ data, date }) {
   // --- cell builders (keys are prefixed so a whole <tr> stays unique) ---------
   const empties = (n, p) => Array.from({ length: n }).map((_, k) => <td key={p + k} />);
   function saleCells(l, p) {
-    if (!l) return empties(goodsWidth, p);
+    if (!l) return empties(saleWidth, p);
     return [
       <td key={p + 'n'}>
         <SaleName l={l} />
@@ -107,6 +109,9 @@ export function DailySaleSheet({ data, date }) {
       </td>,
       <td key={p + 'a'} className="paper-num">
         {N(l.amount)}
+      </td>,
+      <td key={p + 'd'} className="paper-num">
+        {N(l.discount, true)}
       </td>,
       ...(showProfit
         ? [
@@ -137,7 +142,7 @@ export function DailySaleSheet({ data, date }) {
     );
   }
   function purCells(l, p) {
-    if (!l) return empties(goodsWidth, p);
+    if (!l) return empties(purWidth, p);
     return [
       <td key={p + 'n'}>
         <PurName l={l} />
@@ -175,6 +180,7 @@ export function DailySaleSheet({ data, date }) {
     ['Cash Sale', N(t.cashSale)],
     ['Total Sale', N(t.totalSale)],
     ['Discount on Sale', N(t.discountOnSale || 0)],
+    ['Line Discount', N(saleDisc)],
   ];
   const col2 = [
     ...(showProfit
@@ -233,10 +239,10 @@ export function DailySaleSheet({ data, date }) {
         <table className="paper-grid w-full text-[12px]">
           <thead>
             <tr>
-              <th colSpan={goodsWidth} className="paper-caps">
+              <th colSpan={saleWidth} className="paper-caps">
                 S A L E
               </th>
-              <th colSpan={goodsWidth} className="paper-caps">
+              <th colSpan={purWidth} className="paper-caps">
                 P U R C H A S E
               </th>
               <th colSpan={2}>Cash Receipt</th>
@@ -249,6 +255,7 @@ export function DailySaleSheet({ data, date }) {
               <th className="paper-num">Qty</th>
               <th className="paper-num">@</th>
               <th className="paper-num">Amt</th>
+              <th className="paper-num">Disc</th>
               {showProfit && <th className="paper-num">P</th>}
               <th className="text-left">Name</th>
               <th className="paper-num">Qty</th>
@@ -283,6 +290,7 @@ export function DailySaleSheet({ data, date }) {
               <td className="paper-num">{N(saleQty)}</td>
               <td />
               <td className="paper-num">{N(t.totalSale)}</td>
+              <td className="paper-num">{N(saleDisc, true)}</td>
               {showProfit && <td className="paper-num">{N(saleProfit)}</td>}
               <td />
               <td className="paper-num">{purchases.length ? N(purQty) : ''}</td>
@@ -385,6 +393,7 @@ export default function DailySale() {
       ['Cash Sale', t.cashSale],
       ['Credit Sale', t.creditSale],
       ['Total Sale', t.totalSale],
+      ['Line Discount', data.sales.reduce((s, x) => s + Number(x.discount || 0), 0)],
       ['Total Profit', t.totalProfit],
       ['Opening Cash', data.openingCash],
       ['Paid Cash', t.totalPayments],

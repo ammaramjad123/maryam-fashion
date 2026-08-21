@@ -420,6 +420,10 @@ Frozen on the line at post time (`posting.service.js`), so every report/PDF/Exce
 The single on-screen/live formula is `lineProfit()` (`client/src/lib/profit.js`) — the grid P cell, the
 live totals and the posted totals all read it, so they can never drift.
 
+**Shown in reports.** The Daily Sale sheet / PDF / Excel carry a **Disc** column in the SALE section
+(so the SALE grid is one wider than PURCHASE) and a **Line Discount** total in the summary box; the CSV
+export has the same column and total. The printed **P** column is already net of it.
+
 **Orthogonal to R9.** The day-level discount trims **cash** (`cashSaleLessDisc`); the per-line discount
 trims **profit**. They hit different totals, so both may be used together with no double-count.
 
