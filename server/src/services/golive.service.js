@@ -6,6 +6,7 @@ import LedgerEntry from '../models/LedgerEntry.js';
 import StockTransaction from '../models/StockTransaction.js';
 import Setting from '../models/Setting.js';
 import { getPartyBalance } from './ledger.service.js';
+import { saveDraft } from './daybook.service.js';
 import { karachiDay, dayStart } from '../utils/shopDate.js';
 import { parseCodeNumber } from '../utils/productCode.js';
 
@@ -227,4 +228,168 @@ export async function setOpeningCash(amount) {
   if (!Number.isFinite(value) || value < 0) throw new Error('Opening cash must be a number >= 0');
   await Setting.updateOne({}, { $set: { openingCash: value } }, { upsert: true });
   return value;
+}
+
+// ── ONE-OFF: restore the 31 Aug 2026 day book that was lost to the (now-fixed)
+// save error. Re-enters the operator's exact lines (from his screenshots) as a
+// DRAFT — it does NOT post. The cousin reviews and posts himself. Codes/names
+// are resolved to ids here so the raw data stays human-readable. Remove this
+// (and its endpoint/button) once the draft is confirmed.
+//
+// Sale row: [billNo, code, party|null (null = cash), qty, rate, discount]
+const AUG31_SALES = [
+  [12037, 'K34', null, 1, 2000, 0],
+  [12038, 'K30', null, 4, 1700, 0],
+  [12038, 'K34', null, -2, 1800, 0],
+  [12038, 'K30', null, -1, 1700, 0],
+  [12039, 'K62', null, 2, 3400, 0],
+  [12039, 'K61', null, 6, 3400, 200],
+  [12040, 'K27', null, 12, 1550, 0],
+  [12040, 'K33', null, 16, 1850, 0],
+  [12040, 'K38', null, 3, 2300, 0],
+  [12041, 'K56', null, 2, 3200, 0],
+  [12041, 'K30', null, 1, 1600, 0],
+  [12042, 'K31', null, 32, 1650, 0],
+  [12042, 'K30', null, 4, 1600, 100],
+  [12042, 'K30', null, -1, 1600, 0],
+  [12043, 'K22', null, 40, 1225, 0],
+  [12043, 'K56', null, 6, 3000, 1000],
+  [12044, 'K56', null, 1, 3500, 0],
+  [12045, 'K30', null, 2, 1500, 0],
+  [12046, 'K30', null, 1, 1700, 0],
+  [12047, 'K24', null, 12, 1400, 0],
+  [12048, 'K34', null, 22, 1900, 0],
+  [12048, 'K36', null, 16, 2100, 0],
+  [12048, 'K30', null, 19, 1700, 700],
+  [12049, 'K62', null, 1, 3500, 0],
+  [12049, 'K68', null, 1, 3600, 0],
+  [12050, 'K30', null, 8, 1700, 0],
+  [12051, 'K61', null, 1, 3300, 0],
+  [12052, 'K60', null, 1, 3300, 0],
+  [12053, 'K23', null, 2, 1350, 0],
+  [12053, 'K32', null, 1, 1600, 0],
+  [12054, 'K68', null, 1, 3500, 0],
+  [12055, 'K62', null, 2, 3500, 0],
+  [12055, 'K61', null, 2, 3450, 100],
+  [12056, 'K33', null, 1, 1800, 0],
+  [12057, 'K34', null, 4, 1900, 0],
+  [12057, 'K30', null, 12, 1700, 0],
+  [12057, 'K22', null, 12, 1200, 100],
+  [12058, 'K60', null, 3, 3400, 0],
+  [12058, 'K21', null, 12, 1150, 0],
+  [12059, 'K32', null, 8, 1850, 0],
+  [12059, 'K30', null, 4, 1750, 0],
+  [12059, 'K33', null, 4, 1850, 0],
+  [12059, 'K33', null, -16, 1850, 0],
+  [12060, 'K62', null, 1, 3250, 0],
+  [12061, 'K22', null, 1, 1000, 0],
+  [12061, 'K24', null, 1, 1900, 0],
+  [12062, 'K24', null, 1, 1900, 0],
+  [12063, 'K32', null, 1, 1800, 0],
+  [12064, 'K62', null, 1, 3300, 0],
+  [12065, 'K22', null, 1, 700, 0],
+  [12065, 'K22', null, 1, 1300, 0],
+  [12066, 'K30', null, 1, 1500, 0],
+  [12067, 'K56', null, 1, 3400, 0],
+  [12067, 'K32', null, 1, 1800, 0],
+  [12067, 'K30', null, 1, 1500, 0],
+  [12068, 'K32', null, 4, 1800, 0],
+  [12068, 'K34', null, 4, 1950, 0],
+  [12069, 'K60', 'Rashid Unit', 21, 3000, 0],
+  [12069, 'K70', 'Rashid Unit', 15, 3500, 0],
+  [12070, 'K23', 'SY Collection', 164, 1150, 0],
+  [12070, 'K22', 'SY Collection', 56, 1100, 0],
+  [12070, 'K27', 'SY Collection', 92, 1350, 0],
+  [12070, 'K36', 'SY Collection', 156, 1800, 0],
+  [12070, 'K34', 'SY Collection', 104, 1700, 0],
+  [12070, 'K33', 'SY Collection', 14, 1650, 0],
+];
+// Purchase row: [code, supplier, qty, rate]  (all credit)
+const AUG31_PURCHASES = [
+  ['K24', 'Haji Riyaz', 32, 1200],
+  ['K34', 'Haji Riyaz', 12, 1700],
+  ['K68', 'Haji Riyaz', 4, 3400],
+  ['K22', 'Haji Riyaz', 32, 1100],
+  ['K36', 'SY Collection', 128, 1800],
+  ['K24', 'SY Collection', 168, 1200],
+  ['K65', 'SY Collection', 21, 3250],
+];
+// Payment row: [party, amount]
+const AUG31_PAYMENTS = [
+  ['Rana Akhter', 30000],
+  ['Bebe Hafizabad', 16200],
+  ['Bebe Hafizabad', 8100],
+  ['Rashid Unit', 5000],
+  ['Rana Akhter', 30000],
+  ['Shehbaz Unit', 20000],
+];
+
+export async function restoreAug31Draft() {
+  const date = '2026-08-31';
+  const products = await Product.find({}).select('code').lean();
+  const byCode = new Map(products.map((p) => [String(p.code).toUpperCase(), p._id]));
+  const parties = await Party.find({}).select('name').lean();
+  const byName = new Map(parties.map((p) => [String(p.name).trim().toLowerCase(), p._id]));
+
+  const unresolved = new Set();
+  const prod = (code) => {
+    const id = byCode.get(String(code).toUpperCase());
+    if (!id) unresolved.add(`product code "${code}"`);
+    return id;
+  };
+  const pty = (name) => {
+    if (!name) return null;
+    const id = byName.get(String(name).trim().toLowerCase());
+    if (!id) unresolved.add(`party "${name}"`);
+    return id;
+  };
+
+  const sales = AUG31_SALES.map((row, i) => {
+    const [billNo, code, party, qty, rate, discount] = row;
+    const sameBill = i > 0 && AUG31_SALES[i - 1][0] === billNo;
+    return {
+      billNo: sameBill ? undefined : billNo, // number on the bill's first row only
+      sameBill,
+      productId: prod(code),
+      partyId: pty(party),
+      qty,
+      rate,
+      discount,
+    };
+  });
+  const purchases = AUG31_PURCHASES.map(([code, supplier, qty, rate]) => ({
+    productId: prod(code),
+    partyId: pty(supplier),
+    qty,
+    rate,
+    discount: 0,
+  }));
+  const payments = AUG31_PAYMENTS.map(([party, amount]) => ({
+    partyId: pty(party),
+    narration: '',
+    amount,
+  }));
+
+  if (unresolved.size) {
+    throw new Error(
+      `Cannot restore — these are not in the system: ${[...unresolved].join(', ')}. ` +
+        `Add them first, then retry.`
+    );
+  }
+
+  // Save as DRAFT only (NEVER post) — the cousin reviews and posts himself.
+  const { day } = await saveDraft(date, {
+    sales,
+    purchases,
+    receipts: [],
+    payments,
+    expenses: [],
+    discountOnSale: 0,
+  });
+
+  return {
+    date,
+    status: day.status, // 'DRAFT'
+    saved: { sales: sales.length, purchases: purchases.length, payments: payments.length },
+  };
 }

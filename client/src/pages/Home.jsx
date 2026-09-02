@@ -162,54 +162,26 @@ export default function Home() {
         </>
       )}
 
-      {isAdmin && <DayZeroSetup />}
+      {isAdmin && <RestoreAug31 />}
     </div>
   );
 }
 
-// ONE-TIME go-live tool (admin). Wipes every day record (keeps products, parties
-// and expense heads) and posts a "Day Zero" so the first real day carries the
-// owner's opening cash and yesterday figures. Destructive — guarded by a typed
-// confirmation. Remove this panel once go-live is done.
-function DayZeroSetup() {
-  const [open, setOpen] = useState(false);
-  const [dayZeroDate, setDayZeroDate] = useState('2026-08-30');
-  const [confirmText, setConfirmText] = useState('');
+// ONE-OFF (admin). Re-enters the 31 Aug 2026 day book that was lost to the save
+// error, from the operator's screenshots, as a DRAFT — it does NOT post. The
+// cousin reviews and posts it himself. Remove this once the draft is confirmed.
+function RestoreAug31() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-
-  const figures = [
-    ['Top band · Profit', -292955],
-    ['Top band · Cash Sale', 256700],
-    ['Top band · Shop Exp', 306710],
-    ['Opening Cash In', 143742],
-    ['Cash Sale (col 1)', 0],
-    ['Total Sale (col 1)', 0],
-    ['Profit Sale/Pur', 27500],
-    ['Total Profit', -265455],
-    ['Total Sale Less Disc', 0],
-    ['Cash Rec', 0],
-    ['Cash Sale Less Disc', 258600],
-    ['Total Cash', 402342],
-    ['Paid Cash', 110000],
-    ['Shop Exp', 71639],
-    ['Net Cash → Day 1 opening', 220703],
-    ['Total Sale Bank', 515300],
-    ['Total Exp', 378349],
-  ];
 
   async function run() {
     setBusy(true);
     setError('');
     setResult(null);
     try {
-      const data = await apiFetch('/maintenance/seed-day-zero', {
-        method: 'POST',
-        body: { dayZeroDate },
-      });
+      const data = await apiFetch('/maintenance/restore-aug31', { method: 'POST' });
       setResult(data);
-      setConfirmText('');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -218,94 +190,40 @@ function DayZeroSetup() {
   }
 
   return (
-    <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50/60">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-4 py-2 text-left"
-      >
-        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
-          ⚙︎ Go-Live: Day-Zero setup (one-time)
-        </span>
-        <span className="text-xs text-amber-700">{open ? 'Hide' : 'Show'}</span>
-      </button>
+    <div className="mt-6 rounded-lg border border-sky-300 bg-sky-50/60 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-sky-800">
+        Restore 31 Aug 2026 day book (draft)
+      </div>
+      <p className="my-2 text-sm text-stone-700">
+        Re-enters the lost 31 Aug day book (65 sales · 7 purchases · 6 payments) as a{' '}
+        <b>draft</b>. It is <b>not posted</b> — open it, check it against your sheet, then post it
+        yourself.
+      </p>
 
-      {open && (
-        <div className="border-t border-amber-200 px-4 py-3">
-          <p className="mb-3 text-sm text-stone-700">
-            This <b>deletes every day record</b> (and its stock/ledger movements) and posts a{' '}
-            <b>Day Zero</b> that carries these figures into your first real day. Your products,
-            parties (khata) and expense heads are <b>kept</b>.
-          </p>
-
-          <div className="mb-3 overflow-hidden rounded border border-stone-200 bg-white">
-            <table className="w-full font-mono text-[13px]">
-              <tbody>
-                {figures.map(([label, value]) => (
-                  <tr key={label} className="border-b border-stone-100 last:border-b-0">
-                    <td className="px-3 py-1 text-stone-600">{label}</td>
-                    <td
-                      className={`px-3 py-1 text-right tabular-nums ${
-                        value < 0 ? 'text-red-600' : 'text-stone-800'
-                      }`}
-                    >
-                      {money(value)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <label className="mb-3 block text-sm">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-stone-500">
-              Day-Zero date (the day BEFORE your first real day)
-            </span>
-            <input
-              type="date"
-              value={dayZeroDate}
-              onChange={(e) => setDayZeroDate(e.target.value)}
-              className="rounded border border-stone-300 px-2 py-1.5 font-mono text-sm"
-            />
-          </label>
-
-          <label className="mb-3 block text-sm">
-            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-stone-500">
-              Type <b>RESET</b> to confirm this deletes all day records
-            </span>
-            <input
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="RESET"
-              className="rounded border border-stone-300 px-2 py-1.5 text-sm"
-            />
-          </label>
-
-          {error && (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          {result && (
-            <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-              {result.message ||
-                `Day Zero seeded. Deleted ${result.deleted?.dayBooks ?? 0} day book(s).`}{' '}
-              Open{' '}
-              <Link to={`/daybook/${todayYmd()}`} className="font-semibold underline">
-                today&rsquo;s Day Book
-              </Link>{' '}
-              to see it carry forward.
-            </div>
-          )}
-
-          <button
-            onClick={run}
-            disabled={busy || confirmText !== 'RESET'}
-            className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {busy ? 'Running…' : 'Reset & seed Day Zero'}
-          </button>
+      {error && (
+        <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
         </div>
       )}
+      {result && (
+        <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Saved draft — {result.saved?.sales} sales, {result.saved?.purchases} purchases,{' '}
+          {result.saved?.payments} payments.{' '}
+          <Link to="/daybook/2026-08-31" className="font-semibold underline">
+            Open 31 Aug day book
+          </Link>{' '}
+          to review and post.
+        </div>
+      )}
+
+      <button
+        onClick={run}
+        disabled={busy}
+        className="rounded bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-60"
+      >
+        {busy ? 'Restoring…' : 'Restore 31 Aug draft'}
+      </button>
     </div>
   );
 }
+

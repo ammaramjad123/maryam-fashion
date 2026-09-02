@@ -6,7 +6,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import * as partyService from '../services/party.service.js';
 import * as productService from '../services/product.service.js';
 import * as expenseHeadService from '../services/expenseHead.service.js';
-import { recomputeCodeNumbers, seedDayZero } from '../services/golive.service.js';
+import { recomputeCodeNumbers, restoreAug31Draft } from '../services/golive.service.js';
 
 const router = Router();
 
@@ -28,56 +28,19 @@ router.post(
   })
 );
 
-// One-time go-live seed (ADMIN only). Wipes every DAY record (keeps masters +
-// party/bank openings + product opening stock), sets the opening cash, and posts
-// a "Day Zero" carrying the owner's opening snapshot into the first real day.
-// The figures are the owner's fixed go-live numbers; only the Day-Zero date is
-// chosen at run time. Cash reconciles exactly: 143,742 + 258,600 − 110,000 −
-// 71,639 = 220,703 (Day 1's opening cash).
+// One-off (ADMIN only): restore the 31 Aug 2026 day book that was lost to the
+// save error, re-entered from the operator's screenshots as a DRAFT. Does NOT
+// post — the cousin reviews and posts himself.
 router.post(
-  '/maintenance/seed-day-zero',
+  '/maintenance/restore-aug31',
   requireAuth,
   requireRole('ADMIN'),
-  asyncHandler(async (req, res) => {
-    const dayZeroDate = String(req.body?.dayZeroDate || '');
-    const openingCash = 143742; // Day Zero's own opening cash (top-right + col 3)
-    // Base totals: drive the cash chain (→ Net Cash 220,703) and fill the report
-    // slots the app already derives.
-    const totals = {
-      creditSale: 0,
-      cashSale: 0, // Day Zero is an opening snapshot — no actual sales that day
-      totalSale: 0,
-      discountOnSale: 0,
-      totalSaleLessDisc: 0, // owner's figure
-      cashSaleLessDisc: 258600, // drives the cash chain (independent of Cash Sale)
-      totalProfit: -265455, // "Total Profit"
-      totalPurchase: 0,
-      cashPurchase: 0,
-      totalReceipts: 0, // Cash Rec
-      totalPayments: 110000, // Paid Cash
-      totalExpenses: 71639, // "Shop Exp" (today)
-      totalCash: 402342,
-      netCash: 220703,
-    };
-    // Display-only figures the per-day model doesn't derive — printed verbatim on
-    // Day Zero's Daily Sale report (top band + the running "Total" slots).
-    const reportOverride = {
-      totals: {
-        profitSalePur: 27500, // "Profit Sale/Pur" (today) — distinct from Total Profit
-        totalSaleBank: 515300, // "Total Sale Bank" (running)
-        totalExp: 378349, // "Total Exp" (running)
-      },
-      previousDay: {
-        totalProfit: -292955, // top band "Profit"
-        cashSale: 256700, // top band "Cash Sale"
-        totalExpenses: 306710, // top band "Shop Exp"
-      },
-    };
-    const result = await seedDayZero({ dayZeroDate, openingCash, totals, reportOverride });
+  asyncHandler(async (_req, res) => {
+    const result = await restoreAug31Draft();
     res.json({
       success: true,
       data: result,
-      message: `Day Zero posted on ${dayZeroDate}. Day 1 opens at ${totals.netCash.toLocaleString('en-US')}. Deleted ${result.deleted.dayBooks} day book(s).`,
+      message: `Saved DRAFT for ${result.date}: ${result.saved.sales} sales, ${result.saved.purchases} purchases, ${result.saved.payments} payments. Review and post it yourself.`,
     });
   })
 );
