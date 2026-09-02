@@ -460,7 +460,7 @@ netCash      = see R7
 
 - One DayBook per date (unique index).
 - `qty != 0` (may be negative — see R3). `rate >= 0`.
-- Purchase line requires a supplier `partyId`.
+- Purchase party is OPTIONAL: no party = **cash purchase** (R1 posting table — cash OUT, stock IN), same as a party-less cash sale. A party makes it a credit purchase.
 - Receipt / Payment: `partyId` required, `amount > 0`.
 - Expense: `expenseHeadId` required, `amount > 0`.
 - Product `code` unique, uppercase (`K30`).

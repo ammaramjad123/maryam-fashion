@@ -333,19 +333,19 @@ describe('Day Book API', () => {
     expect(res.body.errors.join(' ')).toMatch(/non-zero/);
   });
 
-  it('rejects a purchase line without a supplier partyId', async () => {
+  it('ACCEPTS a purchase line without a party — a CASH purchase (docs/07 R1)', async () => {
     const res = await request(app)
       .put(`${BASE}/daybook/2025-07-24`)
       .set(bearer(operatorToken))
       .send({
         sales: [],
-        purchases: [{ productId: ids.products.K30._id, qty: 5, rate: 1500 }], // no partyId
+        purchases: [{ productId: ids.products.K30._id, qty: 5, rate: 1500 }], // no party = cash
         receipts: [],
         payments: [],
         expenses: [],
       });
-    expect(res.status).toBe(400);
-    expect(res.body.errors.join(' ')).toMatch(/partyId \(supplier\) is required/);
+    expect(res.status).toBe(200);
+    expect(res.body.data.day.purchases[0].partyId ?? null).toBeNull(); // stored as cash purchase
   });
 
   it('rejects a bad :date and a future post date', async () => {

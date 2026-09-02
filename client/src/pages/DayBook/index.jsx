@@ -598,7 +598,7 @@ export default function DayBook() {
             <LineGrid
               title={<L k="purchase" />}
               accent="border-sky-400"
-              columns={goodsCols(<L k="supplier" />, false, 'purchaseProfit')}
+              columns={goodsCols(<L en="Supplier" ur="سپلائر" />, true, 'purchaseProfit')}
               {...gridProps('purchases')}
             />
             <LineGrid

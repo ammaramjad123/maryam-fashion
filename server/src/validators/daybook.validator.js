@@ -40,7 +40,8 @@ export function validateSections(payload = {}) {
 
   (payload.purchases || []).forEach((l, i) => {
     if (!isId(l.productId)) errors.push(`purchases[${i}].productId is required`);
-    if (!isId(l.partyId)) errors.push(`purchases[${i}].partyId (supplier) is required`);
+    // Party is OPTIONAL on a purchase: no party = CASH purchase (docs/07 R1
+    // posting table — cash OUT, stock IN), exactly like a party-less cash sale.
     if (num(l.qty) === 0 || Number.isNaN(num(l.qty)))
       errors.push(`purchases[${i}].qty must be non-zero`);
     if (Number.isNaN(num(l.rate)) || num(l.rate) < 0)
