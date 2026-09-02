@@ -6,7 +6,7 @@ import LedgerEntry from '../models/LedgerEntry.js';
 import StockTransaction from '../models/StockTransaction.js';
 import Setting from '../models/Setting.js';
 import { getPartyBalance } from './ledger.service.js';
-import { karachiDay } from '../utils/shopDate.js';
+import { karachiDay, dayStart } from '../utils/shopDate.js';
 import { parseCodeNumber } from '../utils/productCode.js';
 
 // Go-Live ("Day Zero") helpers. resetForGoLive wipes all transactional data and
@@ -103,6 +103,51 @@ export async function recomputeCodeNumbers() {
     }
   }
   return { scanned: products.length, changed: fixed.length, fixed };
+}
+
+// One-time go-live seed. Wipes every DAY record (day books + the stock/ledger
+// movements they posted) but KEEPS master data — products (with their opening
+// stock), parties/banks and their OPENING ledger balances, expense heads, and
+// the Setting tuning. Then sets the opening cash and posts a single "Day Zero"
+// whose cached `totals` carry into the first real day:
+//   • Day 1's Opening Cash = getCashBalance(Day Zero) = openingCash + Day Zero's
+//     net cash movement (from totals). With the owner's figures that is 220,703.
+//   • Day 1's "Yesterday" reminder strip = Day Zero's totals.
+// Day Zero has NO line items — it is a summary snapshot, not real vouchers, so
+// stock and party ledgers are untouched. Idempotent: re-running wipes and
+// re-seeds cleanly.
+export async function seedDayZero({ dayZeroDate, openingCash, totals }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dayZeroDate || ''))) {
+    throw new Error('dayZeroDate must be a YYYY-MM-DD date');
+  }
+  if (!(Number(openingCash) >= 0)) throw new Error('openingCash must be a number >= 0');
+
+  const deleted = {
+    dayBooks: (await DayBook.deleteMany({})).deletedCount,
+    stockTransactions: (await StockTransaction.deleteMany({})).deletedCount,
+    // Keep party/bank OPENING rows; drop only the day-book-derived entries.
+    ledgerFromDayBooks: (await LedgerEntry.deleteMany({ sourceType: { $ne: 'OPENING' } }))
+      .deletedCount,
+  };
+
+  await Setting.updateOne({}, { $set: { openingCash: Number(openingCash) } }, { upsert: true });
+
+  await DayBook.create({
+    date: dayStart(dayZeroDate),
+    status: 'POSTED',
+    openingCash: Number(openingCash),
+    pageNo: 219, // so the first real day auto-numbers to 220 (the real book's start)
+    sales: [],
+    purchases: [],
+    receipts: [],
+    payments: [],
+    expenses: [],
+    discountOnSale: 0,
+    totals,
+    postedAt: new Date(),
+  });
+
+  return { deleted, openingCash: Number(openingCash), dayZero: { date: dayZeroDate, totals } };
 }
 
 // The current opening position + any problems, for the Day-Zero confirmation.

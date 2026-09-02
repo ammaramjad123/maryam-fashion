@@ -46,6 +46,7 @@ function PartyList({ title, sub, rows = [], tone }) {
 
 export default function Home() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const today = todayYmd();
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -159,6 +160,141 @@ export default function Home() {
             )}
           </div>
         </>
+      )}
+
+      {isAdmin && <DayZeroSetup />}
+    </div>
+  );
+}
+
+// ONE-TIME go-live tool (admin). Wipes every day record (keeps products, parties
+// and expense heads) and posts a "Day Zero" so the first real day carries the
+// owner's opening cash and yesterday figures. Destructive — guarded by a typed
+// confirmation. Remove this panel once go-live is done.
+function DayZeroSetup() {
+  const [open, setOpen] = useState(false);
+  const [dayZeroDate, setDayZeroDate] = useState('2026-09-01');
+  const [confirmText, setConfirmText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  const figures = [
+    ['Opening Cash (Day Zero)', 143742],
+    ['Cash Sale', 256700],
+    ['Cash Sale Less Disc', 258600],
+    ['Paid Cash', 110000],
+    ['Shop Expense', 71639],
+    ['Total Profit', -265455],
+    ['Net Cash → Day 1 opening', 220703],
+  ];
+
+  async function run() {
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const data = await apiFetch('/maintenance/seed-day-zero', {
+        method: 'POST',
+        body: { dayZeroDate },
+      });
+      setResult(data);
+      setConfirmText('');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50/60">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-2 text-left"
+      >
+        <span className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
+          ⚙︎ Go-Live: Day-Zero setup (one-time)
+        </span>
+        <span className="text-xs text-amber-700">{open ? 'Hide' : 'Show'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-amber-200 px-4 py-3">
+          <p className="mb-3 text-sm text-stone-700">
+            This <b>deletes every day record</b> (and its stock/ledger movements) and posts a{' '}
+            <b>Day Zero</b> that carries these figures into your first real day. Your products,
+            parties (khata) and expense heads are <b>kept</b>.
+          </p>
+
+          <div className="mb-3 overflow-hidden rounded border border-stone-200 bg-white">
+            <table className="w-full font-mono text-[13px]">
+              <tbody>
+                {figures.map(([label, value]) => (
+                  <tr key={label} className="border-b border-stone-100 last:border-b-0">
+                    <td className="px-3 py-1 text-stone-600">{label}</td>
+                    <td
+                      className={`px-3 py-1 text-right tabular-nums ${
+                        value < 0 ? 'text-red-600' : 'text-stone-800'
+                      }`}
+                    >
+                      {money(value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <label className="mb-3 block text-sm">
+            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-stone-500">
+              Day-Zero date (the day BEFORE your first real day)
+            </span>
+            <input
+              type="date"
+              value={dayZeroDate}
+              onChange={(e) => setDayZeroDate(e.target.value)}
+              className="rounded border border-stone-300 px-2 py-1.5 font-mono text-sm"
+            />
+          </label>
+
+          <label className="mb-3 block text-sm">
+            <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-stone-500">
+              Type <b>RESET</b> to confirm this deletes all day records
+            </span>
+            <input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="RESET"
+              className="rounded border border-stone-300 px-2 py-1.5 text-sm"
+            />
+          </label>
+
+          {error && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          {result && (
+            <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {result.message ||
+                `Day Zero seeded. Deleted ${result.deleted?.dayBooks ?? 0} day book(s).`}{' '}
+              Open{' '}
+              <Link to={`/daybook/${todayYmd()}`} className="font-semibold underline">
+                today&rsquo;s Day Book
+              </Link>{' '}
+              to see it carry forward.
+            </div>
+          )}
+
+          <button
+            onClick={run}
+            disabled={busy || confirmText !== 'RESET'}
+            className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {busy ? 'Running…' : 'Reset & seed Day Zero'}
+          </button>
+        </div>
       )}
     </div>
   );
