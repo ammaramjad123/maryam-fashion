@@ -173,7 +173,7 @@ export default function Home() {
 // confirmation. Remove this panel once go-live is done.
 function DayZeroSetup() {
   const [open, setOpen] = useState(false);
-  const [dayZeroDate, setDayZeroDate] = useState('2026-09-01');
+  const [dayZeroDate, setDayZeroDate] = useState('2026-08-30');
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
