@@ -152,6 +152,45 @@ export async function seedDayZero({ dayZeroDate, openingCash, totals, reportOver
   return { deleted, openingCash: Number(openingCash), dayZero: { date: dayZeroDate, totals } };
 }
 
+// Canonical Day-Zero DISPLAY figures (the go-live snapshot). Only the Daily Sale
+// report reads these; the cash chain uses cashSaleLessDisc / payments / expenses
+// (→ Net Cash 220,703) and is independent of the profit/sale display values.
+// Tweak here + redeploy + re-run updateDayZeroFigures to change what prints.
+const DAY_ZERO_TOTALS = {
+  creditSale: 0,
+  cashSale: 0,
+  totalSale: 0,
+  discountOnSale: 0,
+  totalSaleLessDisc: 0,
+  cashSaleLessDisc: 258600, // drives the cash chain
+  totalProfit: -643804, // "Total Profit" (col 2)
+  totalPurchase: 0,
+  cashPurchase: 0,
+  totalReceipts: 0,
+  totalPayments: 110000,
+  totalExpenses: 71639,
+  totalCash: 402342,
+  netCash: 220703,
+};
+const DAY_ZERO_REPORT_OVERRIDE = {
+  totals: { profitSalePur: 27500, totalSaleBank: 515300, totalExp: 378349 },
+  previousDay: { totalProfit: -292955, cashSale: 256700, totalExpenses: 306710 },
+};
+
+// Re-apply the canonical display figures to the existing Day-Zero record (the one
+// posted day carrying a reportOverride). Display-only: cash and every other day
+// are untouched.
+export async function updateDayZeroFigures() {
+  const r = await DayBook.updateOne(
+    { reportOverride: { $ne: null } },
+    { $set: { totals: DAY_ZERO_TOTALS, reportOverride: DAY_ZERO_REPORT_OVERRIDE } }
+  );
+  if (r.matchedCount === 0) {
+    throw new Error('No Day Zero record found (nothing carries a report override).');
+  }
+  return { matched: r.matchedCount, modified: r.modifiedCount, totalProfit: DAY_ZERO_TOTALS.totalProfit };
+}
+
 // The current opening position + any problems, for the Day-Zero confirmation.
 export async function goLiveSummary() {
   const today = karachiDay(new Date());

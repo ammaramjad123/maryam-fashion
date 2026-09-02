@@ -163,6 +163,62 @@ export default function Home() {
       )}
 
       {isAdmin && <RestoreAug31 />}
+      {isAdmin && <UpdateDayZero />}
+    </div>
+  );
+}
+
+// ONE-OFF (admin). Re-applies the Day-Zero report figures (e.g. Total Profit).
+// Display-only — does not change cash. Remove once the figures are settled.
+function UpdateDayZero() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  async function run() {
+    setBusy(true);
+    setError('');
+    setMsg('');
+    try {
+      const data = await apiFetch('/maintenance/update-dayzero', { method: 'POST' });
+      setMsg(`Updated — Total Profit is now ${money(data.totalProfit)}.`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-stone-300 bg-stone-50 p-4">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-stone-600">
+        Update Day-Zero report figures
+      </div>
+      <p className="my-2 text-sm text-stone-700">
+        Re-applies the Day-Zero (30 Aug) report figures — Total Profit <b>−643,804</b>. Display-only;
+        Net Cash (220,703) is unaffected.
+      </p>
+      {error && (
+        <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {msg && (
+        <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {msg}{' '}
+          <Link to="/reports/daily-sale?date=2026-08-30" className="font-semibold underline">
+            Open the Day-Zero report
+          </Link>
+          .
+        </div>
+      )}
+      <button
+        onClick={run}
+        disabled={busy}
+        className="rounded bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-60"
+      >
+        {busy ? 'Updating…' : 'Update Day-Zero figures'}
+      </button>
     </div>
   );
 }
