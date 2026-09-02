@@ -185,7 +185,9 @@ export function DailySaleSheet({ data, date }) {
   const col2 = [
     ...(showProfit
       ? [
-          ['Profit Sale/Pur', N(t.totalProfit)],
+          // `profitSalePur` is a Day-Zero display override; normal days fall back
+          // to totalProfit (Profit Sale/Pur === Total Profit).
+          ['Profit Sale/Pur', N(t.profitSalePur ?? t.totalProfit)],
           ['Total Profit', N(t.totalProfit)],
         ]
       : []),
@@ -320,8 +322,9 @@ export function DailySaleSheet({ data, date }) {
         <SummaryCol rows={col4} />
       </div>
       <div className="mt-1 flex gap-10 text-[12px] font-bold">
-        <span>Total Sale Bank {N(t.cashSaleLessDisc)}</span>
-        <span>Total Exp {N(t.totalExpenses)}</span>
+        {/* Day-Zero overrides for the running totals; normal days fall back. */}
+        <span>Total Sale Bank {N(t.totalSaleBank ?? t.cashSaleLessDisc)}</span>
+        <span>Total Exp {N(t.totalExp ?? t.totalExpenses)}</span>
       </div>
 
       {/* Blank space for the owner's hand-written signature and date. */}

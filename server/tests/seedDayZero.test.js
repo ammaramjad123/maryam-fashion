@@ -13,6 +13,7 @@ import Product from '../src/models/Product.js';
 import Party from '../src/models/Party.js';
 import { seedDayZero } from '../src/services/golive.service.js';
 import { getCashBalance } from '../src/services/cash.service.js';
+import { getDailySale } from '../src/services/report.service.js';
 import { addDays } from '../src/utils/shopDate.js';
 
 let mongod;
@@ -71,10 +72,15 @@ describe('seedDayZero (go-live)', () => {
       totals: { netCash: 999 },
     });
 
+    const reportOverride = {
+      totals: { profitSalePur: 27500, totalSaleBank: 515300, totalExp: 378349 },
+      previousDay: { totalProfit: -292955, cashSale: 256700, totalExpenses: 306710 },
+    };
     const res = await seedDayZero({
       dayZeroDate: '2026-09-01',
       openingCash: 143742,
       totals: TOTALS,
+      reportOverride,
     });
 
     expect(res.deleted.dayBooks).toBe(1);
@@ -92,6 +98,19 @@ describe('seedDayZero (go-live)', () => {
     // Day Zero closes at 220,703; Day 1 (2026-09-02) opens there.
     expect(await getCashBalance('2026-09-01')).toBe(220703);
     expect(await getCashBalance(addDays('2026-09-02', -1))).toBe(220703);
+
+    // The Daily Sale report shows the owner's exact figures (base + overrides).
+    const rpt = await getDailySale('2026-09-01');
+    expect(rpt.totals.totalProfit).toBe(-265455); // Total Profit (base)
+    expect(rpt.totals.profitSalePur).toBe(27500); // Profit Sale/Pur (override)
+    expect(rpt.totals.totalSaleBank).toBe(515300); // Total Sale Bank (override)
+    expect(rpt.totals.totalExp).toBe(378349); // Total Exp (override)
+    expect(rpt.totals.cashSaleLessDisc).toBe(258600);
+    expect(rpt.totals.netCash).toBe(220703);
+    // Top-band reminder (override).
+    expect(rpt.previousDay.totalProfit).toBe(-292955);
+    expect(rpt.previousDay.cashSale).toBe(256700);
+    expect(rpt.previousDay.totalExpenses).toBe(306710);
   });
 
   it('rejects a bad date', async () => {

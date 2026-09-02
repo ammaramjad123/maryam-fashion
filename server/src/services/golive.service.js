@@ -116,7 +116,7 @@ export async function recomputeCodeNumbers() {
 // Day Zero has NO line items — it is a summary snapshot, not real vouchers, so
 // stock and party ledgers are untouched. Idempotent: re-running wipes and
 // re-seeds cleanly.
-export async function seedDayZero({ dayZeroDate, openingCash, totals }) {
+export async function seedDayZero({ dayZeroDate, openingCash, totals, reportOverride }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dayZeroDate || ''))) {
     throw new Error('dayZeroDate must be a YYYY-MM-DD date');
   }
@@ -144,6 +144,7 @@ export async function seedDayZero({ dayZeroDate, openingCash, totals }) {
     expenses: [],
     discountOnSale: 0,
     totals,
+    reportOverride, // display-only figures for the report (undefined = none)
     postedAt: new Date(),
   });
 

@@ -148,6 +148,16 @@ export async function getDailySale(ymd) {
       }
     : null;
 
+  // A seeded "Day Zero" go-live record may carry display-only overrides for
+  // figures the per-day model doesn't derive (running Total Profit/Exp/Sale Bank
+  // and the top-band reminder). Apply them for THIS record only; every normal
+  // day has no override and is unaffected.
+  const ov = day.reportOverride;
+  const totalsOut = ov?.totals ? { ...(day.totals || {}), ...ov.totals } : day.totals || null;
+  const previousDayOut = ov?.previousDay
+    ? { date: previousDay?.date ?? null, ...ov.previousDay }
+    : previousDay;
+
   return {
     date: ymd,
     status: day.status,
@@ -160,8 +170,8 @@ export async function getDailySale(ymd) {
     payments,
     expenses,
     creditSaleByParty,
-    previousDay,
-    totals: day.totals || null,
+    previousDay: previousDayOut,
+    totals: totalsOut,
   };
 }
 

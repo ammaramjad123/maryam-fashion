@@ -40,24 +40,40 @@ router.post(
   requireRole('ADMIN'),
   asyncHandler(async (req, res) => {
     const dayZeroDate = String(req.body?.dayZeroDate || '');
-    const openingCash = 143742; // Day Zero's own opening cash
+    const openingCash = 143742; // Day Zero's own opening cash (top-right + col 3)
+    // Base totals: drive the cash chain (→ Net Cash 220,703) and fill the report
+    // slots the app already derives.
     const totals = {
-      cashSale: 256700,
       creditSale: 0,
+      cashSale: 256700,
       totalSale: 256700,
       discountOnSale: 0,
-      totalSaleLessDisc: 256700,
-      cashSaleLessDisc: 258600, // drives the cash chain → Net Cash 220,703
-      totalProfit: -265455,
+      totalSaleLessDisc: 0, // owner's figure
+      cashSaleLessDisc: 258600, // drives the cash chain
+      totalProfit: -265455, // "Total Profit"
       totalPurchase: 0,
       cashPurchase: 0,
-      totalReceipts: 0,
-      totalPayments: 110000,
-      totalExpenses: 71639,
+      totalReceipts: 0, // Cash Rec
+      totalPayments: 110000, // Paid Cash
+      totalExpenses: 71639, // "Shop Exp" (today)
       totalCash: 402342,
       netCash: 220703,
     };
-    const result = await seedDayZero({ dayZeroDate, openingCash, totals });
+    // Display-only figures the per-day model doesn't derive — printed verbatim on
+    // Day Zero's Daily Sale report (top band + the running "Total" slots).
+    const reportOverride = {
+      totals: {
+        profitSalePur: 27500, // "Profit Sale/Pur" (today) — distinct from Total Profit
+        totalSaleBank: 515300, // "Total Sale Bank" (running)
+        totalExp: 378349, // "Total Exp" (running)
+      },
+      previousDay: {
+        totalProfit: -292955, // top band "Profit"
+        cashSale: 256700, // top band "Cash Sale"
+        totalExpenses: 306710, // top band "Shop Exp"
+      },
+    };
+    const result = await seedDayZero({ dayZeroDate, openingCash, totals, reportOverride });
     res.json({
       success: true,
       data: result,

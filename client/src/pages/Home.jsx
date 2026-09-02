@@ -180,13 +180,22 @@ function DayZeroSetup() {
   const [error, setError] = useState('');
 
   const figures = [
-    ['Opening Cash (Day Zero)', 143742],
+    ['Top band · Profit', -292955],
+    ['Top band · Cash Sale', 256700],
+    ['Top band · Shop Exp', 306710],
+    ['Opening Cash In', 143742],
     ['Cash Sale', 256700],
-    ['Cash Sale Less Disc', 258600],
-    ['Paid Cash', 110000],
-    ['Shop Expense', 71639],
+    ['Profit Sale/Pur', 27500],
     ['Total Profit', -265455],
+    ['Total Sale Less Disc', 0],
+    ['Cash Rec', 0],
+    ['Cash Sale Less Disc', 258600],
+    ['Total Cash', 402342],
+    ['Paid Cash', 110000],
+    ['Shop Exp', 71639],
     ['Net Cash → Day 1 opening', 220703],
+    ['Total Sale Bank', 515300],
+    ['Total Exp', 378349],
   ];
 
   async function run() {

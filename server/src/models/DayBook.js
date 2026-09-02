@@ -80,6 +80,12 @@ const dayBookSchema = new Schema(
     expenses: [expenseSchema],
     discountOnSale: { type: Number, default: 0 },
     totals: totalsSchema,
+    // One-off DISPLAY override for a seeded "Day Zero" go-live record: lets the
+    // Daily Sale report print exact paper figures (e.g. running Total Profit /
+    // Total Exp / Total Sale Bank, and the top-band reminder) that the normal
+    // per-day model does not derive. Ignored by every calculation — only the
+    // report reads it, and only when present. Shape: { totals?, previousDay? }.
+    reportOverride: { type: mongoose.Schema.Types.Mixed, default: undefined },
     postedAt: Date,
     postedBy: { type: oid, ref: 'User' },
     createdBy: { type: oid, ref: 'User' },
