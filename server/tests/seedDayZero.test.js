@@ -34,9 +34,9 @@ beforeEach(async () => {
 });
 
 const TOTALS = {
-  cashSale: 256700,
+  cashSale: 0, // Day Zero snapshot — no actual sales
   creditSale: 0,
-  totalSale: 256700,
+  totalSale: 0,
   discountOnSale: 0,
   totalSaleLessDisc: 256700,
   cashSaleLessDisc: 258600,

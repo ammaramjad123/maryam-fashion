@@ -45,11 +45,11 @@ router.post(
     // slots the app already derives.
     const totals = {
       creditSale: 0,
-      cashSale: 256700,
-      totalSale: 256700,
+      cashSale: 0, // Day Zero is an opening snapshot — no actual sales that day
+      totalSale: 0,
       discountOnSale: 0,
       totalSaleLessDisc: 0, // owner's figure
-      cashSaleLessDisc: 258600, // drives the cash chain
+      cashSaleLessDisc: 258600, // drives the cash chain (independent of Cash Sale)
       totalProfit: -265455, // "Total Profit"
       totalPurchase: 0,
       cashPurchase: 0,
