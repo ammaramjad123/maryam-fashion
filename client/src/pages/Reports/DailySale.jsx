@@ -49,7 +49,7 @@ const N = (v, blank = false) => {
 function SaleName({ l }) {
   return (
     <span>
-      {l.billNo != null && <sup className="mr-1 text-[9px] font-normal">{l.billNo}</sup>}
+      {l.billNo != null && <span className="mr-1 text-[9px] font-normal">{l.billNo}</span>}
       <b>{l.productCode}</b>
       {l.partyName ? ` ${l.partyName}` : ''}
     </span>
