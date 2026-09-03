@@ -301,7 +301,10 @@ export default function DayBook() {
       discountOnSale: disc,
       totalSaleLessDisc: totalSale - disc,
       cashSaleLessDisc,
-      totalProfit: saleProfit + purchaseProfit,
+      totalProfit: saleProfit + purchaseProfit, // the day's own profit
+      // Running "Total Profit" = previous day's Total Profit + today's (projected
+      // live for the draft; frozen at post time by the engine).
+      cumulativeProfit: (prevDay?.cumulativeProfit ?? 0) + saleProfit + purchaseProfit,
       totalPurchase,
       cashPurchase,
       totalReceipts,
@@ -310,7 +313,7 @@ export default function DayBook() {
       totalCash,
       netCash: totalCash - totalPayments - totalExpenses - cashPurchase,
     };
-  }, [rows, discount, openingCash, productMeta]);
+  }, [rows, discount, openingCash, productMeta, prevDay]);
 
   const footerTotals = status === 'POSTED' && postedTotals ? postedTotals : liveTotals;
 

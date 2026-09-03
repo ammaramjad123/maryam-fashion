@@ -155,6 +155,17 @@ export async function postDayBook(dayBookId) {
   const totalExpenses = sum(expenses.map((e) => e.amount)); // Shop Exp
   const totalCash = openingCash + totalReceipts + cashSaleLessDisc;
 
+  // Running "Total Profit": the previous posted day's cumulative profit + today's
+  // day-profit (Profit Sale/Pur). The chain's baseline is the seeded Day Zero,
+  // whose totalProfit IS the opening cumulative; no earlier day → 0.
+  const dayProfit = sum(sales.map((s) => s.profit)) + sum(purchases.map((p) => p.profit));
+  const prevPosted = await DayBook.findOne({ status: 'POSTED', date: { $lt: dayStart(ymd) } })
+    .sort({ date: -1 })
+    .select('totals')
+    .lean();
+  const prevCumulative =
+    prevPosted?.totals?.cumulativeProfit ?? prevPosted?.totals?.totalProfit ?? 0;
+
   const totals = {
     cashSale,
     creditSale,
@@ -162,7 +173,8 @@ export async function postDayBook(dayBookId) {
     discountOnSale,
     totalSaleLessDisc: totalSale - discountOnSale,
     cashSaleLessDisc,
-    totalProfit: sum(sales.map((s) => s.profit)) + sum(purchases.map((p) => p.profit)),
+    totalProfit: dayProfit, // the DAY's profit ("Profit Sale/Pur")
+    cumulativeProfit: prevCumulative + dayProfit, // running "Total Profit"
     totalPurchase: sum(purchases.map((p) => p.amount)),
     cashPurchase,
     totalReceipts,

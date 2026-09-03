@@ -55,7 +55,8 @@ const totalsSchema = new Schema(
     discountOnSale: Number,
     totalSaleLessDisc: Number,
     cashSaleLessDisc: Number,
-    totalProfit: Number,
+    totalProfit: Number, // the DAY's own profit ("Profit Sale/Pur")
+    cumulativeProfit: Number, // running "Total Profit" = prev day's total + today's
     totalPurchase: Number, // all purchases (cash + credit)
     cashPurchase: Number, // purchases with NO party → cash OUT
     totalReceipts: Number,

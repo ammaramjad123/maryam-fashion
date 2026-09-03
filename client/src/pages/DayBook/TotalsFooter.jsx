@@ -47,6 +47,10 @@ function Tile({ label, value, signed, accent }) {
 }
 
 export default function TotalsFooter({ t, openingCash, showProfit = true }) {
+  // Total Profit is the running cumulative (prev day's total + today's); Profit
+  // Sale/Pur is the day's own profit. Falls back to the day-profit when there's
+  // no cumulative (e.g. an unposted first day).
+  const cumProfit = t.cumulativeProfit ?? t.totalProfit;
   return (
     <div className="mt-2 overflow-hidden rounded-lg border border-stone-300 bg-[#FCFBF8]">
       <div className="border-b border-stone-300 bg-stone-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
@@ -56,7 +60,7 @@ export default function TotalsFooter({ t, openingCash, showProfit = true }) {
       {/* At-a-glance headline figures */}
       <div className="grid grid-cols-2 gap-3 px-3 pt-3 sm:grid-cols-3">
         <Tile label="Total Sale" value={t.totalSale} />
-        {showProfit && <Tile label="Total Profit" value={t.totalProfit} signed />}
+        {showProfit && <Tile label="Total Profit" value={cumProfit} signed />}
         <Tile label="Net Cash" value={t.netCash} accent signed />
       </div>
 
@@ -72,12 +76,7 @@ export default function TotalsFooter({ t, openingCash, showProfit = true }) {
           {showProfit && (
             <>
               <Cell label="Profit Sale/Pur" value={t.totalProfit} negative={t.totalProfit < 0} />
-              <Cell
-                label="Total Profit"
-                value={t.totalProfit}
-                strong
-                negative={t.totalProfit < 0}
-              />
+              <Cell label="Total Profit" value={cumProfit} strong negative={cumProfit < 0} />
             </>
           )}
           <Cell label="Total Purchase" value={t.totalPurchase} />

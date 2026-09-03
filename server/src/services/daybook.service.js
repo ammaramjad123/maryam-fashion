@@ -29,7 +29,11 @@ async function previousDayReminders(ymd) {
   return {
     date: karachiDay(prev.date), // 'YYYY-MM-DD' shop-local, not the UTC instant
 
-    totalProfit: t.totalProfit ?? 0, // stripped for non-viewProfit users
+    // Top-band "Profit" = previous day's running Total Profit (cumulative); today's
+    // Total Profit builds on it. `cumulativeProfit` is also sent so the draft can
+    // project today's Total Profit live. Both stripped for non-viewProfit users.
+    totalProfit: t.cumulativeProfit ?? t.totalProfit ?? 0,
+    cumulativeProfit: t.cumulativeProfit ?? t.totalProfit ?? 0,
     cashSale: t.cashSale ?? 0,
     creditSale: t.creditSale ?? 0,
     totalSale: t.totalSale ?? 0,

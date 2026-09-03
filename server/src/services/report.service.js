@@ -139,7 +139,9 @@ export async function getDailySale(ymd) {
   const previousDay = prev
     ? {
         date: karachiDay(prev.date),
-        totalProfit: pt.totalProfit ?? 0,
+        // Top-band "Profit" = the previous day's running Total Profit (cumulative),
+        // which today's Total Profit builds on. Falls back to its day-profit.
+        totalProfit: pt.cumulativeProfit ?? pt.totalProfit ?? 0,
         cashSale: pt.cashSale ?? 0,
         creditSale: pt.creditSale ?? 0,
         totalSale: pt.totalSale ?? 0,

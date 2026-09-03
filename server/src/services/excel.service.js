@@ -169,7 +169,12 @@ function dailySaleWorkbook(data) {
     ['Line Discount', sum(sales, 'discount')],
   ];
   const col2 = [
-    ...(showProfit ? [['Profit Sale/Pur', t.totalProfit], ['Total Profit', t.totalProfit]] : []),
+    ...(showProfit
+      ? [
+          ['Profit Sale/Pur', t.profitSalePur ?? t.totalProfit],
+          ['Total Profit', t.cumulativeProfit ?? t.totalProfit],
+        ]
+      : []),
     ['Total Sale Less Disc', t.totalSaleLessDisc],
   ];
   const col3 = [

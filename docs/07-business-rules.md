@@ -439,11 +439,25 @@ Not a `costRate` change (R6.1) and not the purchase formula (R8) — cost is sti
 cashSale     = Σ sale lines WITHOUT a party
 creditSale   = Σ sale lines WITH a party
 totalSale    = cashSale + creditSale
-totalProfit  = Σ line P                      (sales + purchases)
+totalProfit  = Σ line P                      (sales + purchases) — the DAY's profit ("Profit Sale/Pur")
 paidCash     = Σ cash payment lines
 totalExp     = Σ shop expense lines
 netCash      = see R7
 ```
+
+### R10.1 — "Total Profit" is a running total (owner-confirmed)
+
+The sheet shows **two** profit figures:
+
+- **Profit Sale/Pur** = the day's own profit = `totalProfit` above.
+- **Total Profit** = a **running month-to-date total**:
+  `cumulativeProfit = previous posted day's Total Profit + today's Profit Sale/Pur`.
+
+Frozen at post time (`posting.service.js` reads the previous posted day's `cumulativeProfit`, falling
+back to its `totalProfit`). The chain's **baseline** is the seeded Day Zero, whose `totalProfit` is the
+opening cumulative (the pre-software carry-in). The **top-band "Profit"** on each sheet is the previous
+day's Total Profit — i.e. the number today's Total Profit builds on. Re-post a day to recompute its
+running total (posting order is enforced, so the chain stays consistent).
 
 ---
 

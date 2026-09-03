@@ -185,10 +185,10 @@ export function DailySaleSheet({ data, date }) {
   const col2 = [
     ...(showProfit
       ? [
-          // `profitSalePur` is a Day-Zero display override; normal days fall back
-          // to totalProfit (Profit Sale/Pur === Total Profit).
+          // Profit Sale/Pur = the day's own profit; Total Profit = the running
+          // cumulative (previous day's Total Profit + today's).
           ['Profit Sale/Pur', N(t.profitSalePur ?? t.totalProfit)],
-          ['Total Profit', N(t.totalProfit)],
+          ['Total Profit', N(t.cumulativeProfit ?? t.totalProfit)],
         ]
       : []),
     ['Total Sale Less Disc', N(t.totalSaleLessDisc)],
