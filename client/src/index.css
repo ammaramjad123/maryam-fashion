@@ -94,9 +94,23 @@
     padding: 0 !important;
     max-width: none !important;
   }
+  /* The daily sheet is very wide (6 sections across). Shrink the grid for print
+     so every section — including the rightmost Credit Sale — fits the A4
+     landscape width instead of being clipped. Screen keeps the larger, scrollable
+     size; this only affects the printed page / downloaded PDF. */
+  .paper-grid {
+    font-size: 8px !important;
+    width: 100%;
+  }
   .paper-grid th,
   .paper-grid td {
     border: 0.6pt solid #000;
+    padding: 0.5px 2px !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .paper-caps {
+    letter-spacing: 0.06em !important;
   }
   /* Negatives are RED on screen but the printed sheets are monochrome — force
      the accounting-red (and its nested spans) to black on paper. */
