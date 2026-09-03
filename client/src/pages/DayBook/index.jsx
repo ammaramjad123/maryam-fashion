@@ -255,7 +255,7 @@ export default function DayBook() {
     const creditByParty = new Map();
     for (const r of rows.sales) {
       if (!r.productId) continue;
-      const a = num(r.qty) * num(r.rate) || 0;
+      const a = (num(r.qty) * num(r.rate) || 0) - (num(r.discount) || 0); // net of discount
       if (r.partyId) {
         creditSale += a;
         const prev = creditByParty.get(r.partyId) || { partyName: r.partyName || '—', amount: 0 };

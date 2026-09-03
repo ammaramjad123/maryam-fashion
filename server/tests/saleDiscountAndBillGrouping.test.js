@@ -74,14 +74,14 @@ describe('per-line discount + manual bill grouping', () => {
     const posted = await postDayBook(draft._id);
     const t = posted.totals;
 
-    // --- amounts are GROSS (discount never touches amount/cash) ---
+    // --- amounts are NET of the discount (discount reduces sale/cash too) ---
     expect(posted.sales[0].amount).toBe(2500);
     expect(posted.sales[1].amount).toBe(3200);
-    expect(posted.sales[2].amount).toBe(2500);
-    expect(t.cashSale).toBe(8200); // 2500 + 3200 + 2500 — discount NOT subtracted
-    expect(t.netCash).toBe(8200); // opening 0, no receipts/payments/expenses
+    expect(posted.sales[2].amount).toBe(2350); // 2500 − 150 discount
+    expect(t.cashSale).toBe(8050); // 2500 + 3200 + 2350 — discount subtracted
+    expect(t.netCash).toBe(8050); // opening 0, no receipts/payments/expenses
 
-    // --- profit is NET of the per-line discount ---
+    // --- profit is NET of the per-line discount (reduced once) ---
     expect(posted.sales[0].profit).toBe(300); // (2500−2200)×1
     expect(posted.sales[1].profit).toBe(200); // (1600−1500)×2
     expect(posted.sales[2].profit).toBe(150); // (2500−2200)×1 − 150 discount

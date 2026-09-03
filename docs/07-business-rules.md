@@ -404,31 +404,32 @@ standalone bookkeeping the owner maintains by hand-entry, just like his paper "P
 
 ---
 
-## R9.4. Per-line discount on a sale — PROFIT ONLY (owner-confirmed)
+## R9.4. Per-line discount on a sale — reduces AMOUNT and PROFIT (owner-confirmed)
 
 Distinct from the day-level `Discount on Sale` (R9). Each **sale line** carries an optional
 `discount` (Rs, default 0) that the operator types in the **Disc** column.
 
-> **It reduces PROFIT only.** The line's `amount` stays `qty × rate`, so `cashSale`, `creditSale`,
-> `netCash` and the party's ledger are **untouched**. Only the line's `P` and `totalProfit` drop by it:
+> **It reduces the line AMOUNT (and hence sale/cash/ledger) AND profit** — a real discount on the
+> sale. The amount is booked NET, so `cashSale` / `creditSale` / `totalSale` / `netCash` and the
+> party's ledger all fall by it, and profit falls by it once (never twice):
 >
 > ```
-> line P (sale) = (rate − costRate) × qty − discount     (signed; never clamped)
+> line amount = qty × rate − discount
+> line P      = amount − costRate × qty = (rate − costRate) × qty − discount   (signed; never clamped)
 > ```
 
-Frozen on the line at post time (`posting.service.js`), so every report/PDF/Excel shows the net profit.
-The single on-screen/live formula is `lineProfit()` (`client/src/lib/profit.js`) — the grid P cell, the
-live totals and the posted totals all read it, so they can never drift.
+Frozen on the line at post time (`posting.service.js`). The single on-screen/live profit formula is
+`lineProfit()` (`client/src/lib/profit.js`) and the single amount formula is `amountOf()` — the grid
+cells, the live totals and the posted totals all read them, so they can never drift.
 
 **Shown in reports.** The Daily Sale sheet / PDF / Excel carry a **Disc** column in the SALE section
 (so the SALE grid is one wider than PURCHASE) and a **Line Discount** total in the summary box; the CSV
-export has the same column and total. The printed **P** column is already net of it.
+export has the same. The **Amt** column is already net of the discount, and so is the **P** column.
 
-**Orthogonal to R9.** The day-level discount trims **cash** (`cashSaleLessDisc`); the per-line discount
-trims **profit**. They hit different totals, so both may be used together with no double-count.
+**vs R9.** The day-level `discountOnSale` still trims only cash (`cashSaleLessDisc`); the per-line
+discount trims the amount itself. Both may be used together; each is applied once.
 
-Not a `costRate` change (R6.1) and not the purchase formula (R8) — cost is still the code. `discount` is
-**not** a sensitive key, so operators may enter it even though they never see the resulting profit.
+Not a `costRate` change (R6.1) and not the purchase formula (R8) — cost is still the code.
 
 ---
 

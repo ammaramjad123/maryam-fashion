@@ -93,8 +93,9 @@ export default function LineGrid({
     return editableKeys[i + 1];
   }
 
+  // Net of the per-line discount (sales). Purchases have no discount → num→0.
   function amountOf(row) {
-    return num(row.qty) * num(row.rate);
+    return num(row.qty) * num(row.rate) - (num(row.discount) || 0);
   }
 
   function profitOf(row, col) {

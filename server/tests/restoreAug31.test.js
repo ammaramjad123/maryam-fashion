@@ -78,9 +78,10 @@ describe('restoreAug31Draft', () => {
     // Post it and check the engine reproduces the shop's exact figures.
     const posted = await postByDate('2026-08-31');
     const t = posted.totals;
-    expect(t.totalSale).toBe(1476850);
-    expect(t.creditSale).toBe(970600);
-    expect(t.cashSale).toBe(506250);
+    // Amounts are NET of the 2,200 per-line discounts (all on cash-sale lines).
+    expect(t.totalSale).toBe(1474650); // 1,476,850 gross − 2,200
+    expect(t.creditSale).toBe(970600); // no discounts on credit lines
+    expect(t.cashSale).toBe(504050); // 506,250 − 2,200
     expect(t.totalPurchase).toBe(607850);
     expect(t.totalProfit).toBe(51550); // net of the 2,200 line discounts
     expect(t.totalPayments).toBe(109300);
