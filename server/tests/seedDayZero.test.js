@@ -11,7 +11,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import DayBook from '../src/models/DayBook.js';
 import Product from '../src/models/Product.js';
 import Party from '../src/models/Party.js';
-import { seedDayZero, updateDayZeroFigures } from '../src/services/golive.service.js';
+import { seedDayZero } from '../src/services/golive.service.js';
 import { getCashBalance } from '../src/services/cash.service.js';
 import { getDailySale } from '../src/services/report.service.js';
 import { addDays } from '../src/utils/shopDate.js';
@@ -117,25 +117,5 @@ describe('seedDayZero (go-live)', () => {
     await expect(
       seedDayZero({ dayZeroDate: '01-09-2026', openingCash: 143742, totals: TOTALS })
     ).rejects.toThrow(/YYYY-MM-DD/);
-  });
-
-  it('updateDayZeroFigures re-applies Total Profit −643,804 without touching cash', async () => {
-    await seedDayZero({
-      dayZeroDate: '2026-08-30',
-      openingCash: 143742,
-      totals: TOTALS,
-      reportOverride: { totals: {}, previousDay: { totalProfit: -292955 } },
-    });
-
-    const r = await updateDayZeroFigures();
-    expect(r.matched).toBe(1);
-
-    const rpt = await getDailySale('2026-08-30');
-    expect(rpt.totals.totalProfit).toBe(-643804); // "Total Profit" now updated
-    expect(rpt.totals.profitSalePur).toBe(27500); // Profit Sale/Pur unchanged
-    expect(rpt.totals.netCash).toBe(220703); // cash untouched
-    expect(rpt.previousDay.totalProfit).toBe(-292955); // top-band "Profit" unchanged
-    // Day 1 still opens at 220,703.
-    expect(await getCashBalance('2026-08-30')).toBe(220703);
   });
 });

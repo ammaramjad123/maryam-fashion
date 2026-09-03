@@ -6,11 +6,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import * as partyService from '../services/party.service.js';
 import * as productService from '../services/product.service.js';
 import * as expenseHeadService from '../services/expenseHead.service.js';
-import {
-  recomputeCodeNumbers,
-  restoreAug31Draft,
-  updateDayZeroFigures,
-} from '../services/golive.service.js';
+import { recomputeCodeNumbers } from '../services/golive.service.js';
 
 const router = Router();
 
@@ -28,39 +24,6 @@ router.post(
       success: true,
       data: result,
       message: `Rechecked ${result.scanned} product(s); corrected ${result.changed}.`,
-    });
-  })
-);
-
-// One-off (ADMIN only): restore the 31 Aug 2026 day book that was lost to the
-// save error, re-entered from the operator's screenshots as a DRAFT. Does NOT
-// post — the cousin reviews and posts himself.
-router.post(
-  '/maintenance/restore-aug31',
-  requireAuth,
-  requireRole('ADMIN'),
-  asyncHandler(async (_req, res) => {
-    const result = await restoreAug31Draft();
-    res.json({
-      success: true,
-      data: result,
-      message: `Saved DRAFT for ${result.date}: ${result.saved.sales} sales, ${result.saved.purchases} purchases, ${result.saved.payments} payments. Review and post it yourself.`,
-    });
-  })
-);
-
-// One-off (ADMIN only): re-apply the Day-Zero display figures (e.g. Total Profit)
-// to the seeded Day-Zero report. Display-only — does not touch cash.
-router.post(
-  '/maintenance/update-dayzero',
-  requireAuth,
-  requireRole('ADMIN'),
-  asyncHandler(async (_req, res) => {
-    const result = await updateDayZeroFigures();
-    res.json({
-      success: true,
-      data: result,
-      message: `Day Zero updated — Total Profit is now ${result.totalProfit.toLocaleString('en-US')}.`,
     });
   })
 );
