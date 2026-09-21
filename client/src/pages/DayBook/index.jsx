@@ -302,9 +302,9 @@ export default function DayBook() {
       totalSaleLessDisc: totalSale - disc,
       cashSaleLessDisc,
       totalProfit: saleProfit + purchaseProfit, // the day's own profit
-      // Running "Total Profit" = previous day's Total Profit + today's (projected
-      // live for the draft; frozen at post time by the engine).
-      cumulativeProfit: (prevDay?.cumulativeProfit ?? 0) + saleProfit + purchaseProfit,
+      // Month-to-date running "Total Profit" = the carried month profit (from the
+      // previous same-month day, 0 at month start) + today's. Resets each month.
+      mtdProfit: (prevDay?.totalProfit ?? 0) + saleProfit + purchaseProfit,
       totalPurchase,
       cashPurchase,
       totalReceipts,

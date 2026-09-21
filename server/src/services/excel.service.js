@@ -172,7 +172,7 @@ function dailySaleWorkbook(data) {
     ...(showProfit
       ? [
           ['Profit Sale/Pur', t.profitSalePur ?? t.totalProfit],
-          ['Total Profit', t.cumulativeProfit ?? t.totalProfit],
+          ['Total Profit', t.mtdProfit ?? t.totalProfit],
         ]
       : []),
     ['Total Sale Less Disc', t.totalSaleLessDisc],

@@ -47,10 +47,10 @@ function Tile({ label, value, signed, accent }) {
 }
 
 export default function TotalsFooter({ t, openingCash, showProfit = true }) {
-  // Total Profit is the running cumulative (prev day's total + today's); Profit
-  // Sale/Pur is the day's own profit. Falls back to the day-profit when there's
-  // no cumulative (e.g. an unposted first day).
-  const cumProfit = t.cumulativeProfit ?? t.totalProfit;
+  // Total Profit is the month-to-date running total (carried month profit +
+  // today's, reset each month); Profit Sale/Pur is the day's own profit. Falls
+  // back to the day-profit when the month total isn't available yet.
+  const cumProfit = t.mtdProfit ?? t.totalProfit;
   return (
     <div className="mt-2 overflow-hidden rounded-lg border border-stone-300 bg-[#FCFBF8]">
       <div className="border-b border-stone-300 bg-stone-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">

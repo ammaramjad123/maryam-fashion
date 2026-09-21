@@ -4,6 +4,7 @@ import { getCashBalance } from './cash.service.js';
 import { postDayBook, unpostDayBook } from './posting.service.js';
 import { validateSections } from '../validators/daybook.validator.js';
 import { dayStart, nextDayStart, addDays, karachiDay } from '../utils/shopDate.js';
+import { monthCarried } from './monthTotals.js';
 import { isEmptyDay } from '../utils/dayBookEmpty.js';
 
 // Find the (single) DayBook for a shop-local day, if it exists.
@@ -16,29 +17,29 @@ function openingCashFor(ymd) {
   return getCashBalance(addDays(ymd, -1));
 }
 
-// docs/07 R9.2 — the small figures across the top of the sheet are the LAST
-// posted day's headline totals, reprinted as a reminder. NOT inputs; the system
-// fills them from the most recent posted day strictly before this one.
+// The small figures across the top of the sheet. Profit / Cash Sale / Credit
+// Sale / Shop Exp CLOSE MONTH-WISE (docs/07 R10.1): they are the same-month
+// totals accumulated BEFORE today, so a new month starts at 0. Net Cash carries
+// across months (real cash) — taken from the last posted day. NOT inputs.
 async function previousDayReminders(ymd) {
   const prev = await DayBook.findOne({ status: 'POSTED', date: { $lt: dayStart(ymd) } })
     .sort({ date: -1 })
     .select('date totals')
     .lean();
   if (!prev) return null;
-  const t = prev.totals || {};
+  const carried = await monthCarried(ymd);
   return {
     date: karachiDay(prev.date), // 'YYYY-MM-DD' shop-local, not the UTC instant
 
-    // Top-band "Profit" = previous day's running Total Profit (cumulative); today's
-    // Total Profit builds on it. `cumulativeProfit` is also sent so the draft can
-    // project today's Total Profit live. Both stripped for non-viewProfit users.
-    totalProfit: t.cumulativeProfit ?? t.totalProfit ?? 0,
-    cumulativeProfit: t.cumulativeProfit ?? t.totalProfit ?? 0,
-    cashSale: t.cashSale ?? 0,
-    creditSale: t.creditSale ?? 0,
-    totalSale: t.totalSale ?? 0,
-    totalExpenses: t.totalExpenses ?? 0,
-    netCash: t.netCash ?? 0,
+    // Month-to-date (before today), reset each month. `totalProfit` here is the
+    // carried month profit the draft adds today's profit onto. Stripped for
+    // non-viewProfit users.
+    totalProfit: carried.profit,
+    cashSale: carried.cashSale,
+    creditSale: carried.creditSale,
+    totalSale: carried.cashSale + carried.creditSale,
+    totalExpenses: carried.expenses,
+    netCash: (prev.totals || {}).netCash ?? 0, // cash chain — carries across months
   };
 }
 
@@ -105,6 +106,12 @@ export async function getDay(ymd) {
         discountOnSale: 0,
         _transient: true, // not yet saved to the database
       };
+  // "Total Profit" is the month-to-date running total = the carried month profit
+  // (previousDay.totalProfit) + this day's own profit. Inject it for a POSTED day
+  // so the entry-page footer matches the report (a draft projects it live).
+  if (dayObj.status === 'POSTED' && dayObj.totals) {
+    dayObj.totals.mtdProfit = (previousDay?.totalProfit ?? 0) + (dayObj.totals.totalProfit ?? 0);
+  }
   return {
     day: dayObj,
     openingCash,

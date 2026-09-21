@@ -7,6 +7,7 @@ import ApiError from '../utils/ApiError.js';
 import { getPartyBalance, getPartyBalances } from './ledger.service.js';
 import { getStockAll } from './stock.service.js';
 import { getCashBalance } from './cash.service.js';
+import { monthCarried } from './monthTotals.js';
 import { dayStart, nextDayStart, addDays, karachiDay } from '../utils/shopDate.js';
 import { displayBillNos } from '../utils/billNo.js';
 
@@ -128,37 +129,28 @@ export async function getDailySale(ymd) {
     amount,
   }));
 
-  // Previous-day reminder figures printed small across the top band (docs/07
-  // R9.2) — the last posted day strictly before this one; null → the sheet shows
-  // zeros with ticks (as the real 24/07 sheet did).
-  const prev = await DayBook.findOne({ status: 'POSTED', date: { $lt: dayStart(ymd) } })
-    .sort({ date: -1 })
-    .select('date totals')
-    .lean();
-  const pt = prev?.totals || {};
-  const previousDay = prev
-    ? {
-        date: karachiDay(prev.date),
-        // Top-band "Profit" = the previous day's running Total Profit (cumulative),
-        // which today's Total Profit builds on. Falls back to its day-profit.
-        totalProfit: pt.cumulativeProfit ?? pt.totalProfit ?? 0,
-        cashSale: pt.cashSale ?? 0,
-        creditSale: pt.creditSale ?? 0,
-        totalSale: pt.totalSale ?? 0,
-        totalExpenses: pt.totalExpenses ?? 0,
-        netCash: pt.netCash ?? 0,
-      }
-    : null;
+  // Top band = the running Profit / Cash Sale / Shop Exp carried into today. These
+  // CLOSE MONTH-WISE (owner rule, docs/07 R10.1): they are the same-month totals
+  // accumulated BEFORE today, so the first sheet of a month shows 0 — a new month
+  // never inherits the previous month's totals. (Cash carries separately below.)
+  const carried = await monthCarried(ymd);
+  const previousDay = {
+    totalProfit: carried.profit, // top-band "Profit" (month-to-date, before today)
+    cashSale: carried.cashSale,
+    creditSale: carried.creditSale,
+    totalExpenses: carried.expenses,
+  };
 
   // A seeded "Day Zero" go-live record may carry display-only overrides for
-  // figures the per-day model doesn't derive (running Total Profit/Exp/Sale Bank
-  // and the top-band reminder). Apply them for THIS record only; every normal
-  // day has no override and is unaffected.
+  // figures the per-day model doesn't derive (the top-band reminder + the running
+  // "Total" slots). Apply them for THIS record only; every normal day is unaffected.
   const ov = day.reportOverride;
-  const totalsOut = ov?.totals ? { ...(day.totals || {}), ...ov.totals } : day.totals || null;
-  const previousDayOut = ov?.previousDay
-    ? { date: previousDay?.date ?? null, ...ov.previousDay }
-    : previousDay;
+  const dayTotals = day.totals || {};
+  // "Total Profit" for THIS sheet = the month's running total = carried + today's.
+  const mtdProfit = carried.profit + (dayTotals.totalProfit || 0);
+  const base = { ...dayTotals, mtdProfit };
+  const totalsOut = ov?.totals ? { ...base, ...ov.totals } : base;
+  const previousDayOut = ov?.previousDay ? { ...ov.previousDay } : previousDay;
 
   return {
     date: ymd,

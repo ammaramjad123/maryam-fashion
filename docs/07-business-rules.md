@@ -445,19 +445,23 @@ totalExp     = Σ shop expense lines
 netCash      = see R7
 ```
 
-### R10.1 — "Total Profit" is a running total (owner-confirmed)
+### R10.1 — Running totals CLOSE MONTH-WISE (owner-confirmed)
 
-The sheet shows **two** profit figures:
+The sheet's carried/running figures accumulate **within a calendar month** and **reset to 0 at the
+start of the next month** — a new month never inherits the previous month's totals. This applies to:
 
-- **Profit Sale/Pur** = the day's own profit = `totalProfit` above.
-- **Total Profit** = a **running month-to-date total**:
-  `cumulativeProfit = previous posted day's Total Profit + today's Profit Sale/Pur`.
+- **Total Profit** — `Profit Sale/Pur` (the day's own profit = `totalProfit`) accumulated over the month.
+- **Cash Sale** and **Shop Exp** shown in the top band (the month-to-date carried figures).
 
-Frozen at post time (`posting.service.js` reads the previous posted day's `cumulativeProfit`, falling
-back to its `totalProfit`). The chain's **baseline** is the seeded Day Zero, whose `totalProfit` is the
-opening cumulative (the pre-software carry-in). The **top-band "Profit"** on each sheet is the previous
-day's Total Profit — i.e. the number today's Total Profit builds on. Re-post a day to recompute its
-running total (posting order is enforced, so the chain stays consistent).
+**Derived at report time**, not frozen: `monthCarried(ymd)` (`server/src/services/monthTotals.js`) sums
+the frozen daily totals of POSTED days in the **same shop-local month, strictly before today**. So:
+
+- Top-band **Profit / Cash Sale / Shop Exp** = that month-to-date-before-today (0 on the 1st sheet of a month).
+- **Total Profit** for the sheet = carried month profit + today's `totalProfit` (injected as `totals.mtdProfit`).
+
+Because it is derived, changing the rule needs **no re-posting** — it recomputes on the next view.
+The **cash chain** (Opening / Net Cash) is the one thing that carries **across** months untouched
+(it is real money). The seeded Day Zero belongs to its own month (August) and is not carried into September.
 
 ---
 
