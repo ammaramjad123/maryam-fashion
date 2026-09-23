@@ -18,6 +18,7 @@ export default function LineGrid({
   onCellChange, // (rowIndex, patch) => void
   onCommit, // (rowIndex) => void
   onDeleteRow, // (rowIndex) => void
+  onCreateProduct, // (rowIndex, code) => void — create a new code inline (admin)
   readOnly = false,
 }) {
   const cellRefs = useRef({});
@@ -136,7 +137,7 @@ export default function LineGrid({
               endpoint="/products/search"
               placeholder="code"
               uppercase
-              title={badCode ? 'No product with this code — pick from the list' : undefined}
+              title={badCode ? 'New code — pick from the list or click “Add”' : undefined}
               renderItem={(it) => (
                 <span>
                   <b>{it.code}</b> · {it.name}
@@ -160,6 +161,20 @@ export default function LineGrid({
               onEsc={onEsc}
               onAfterSelect={() => focusCell(rowIndex, nextEditable(col.key))}
             />
+            {/* New code (any letter) → create it right here: cost derives from the
+                number (code × 50). Keeps the typo-guard (you click to confirm). */}
+            {badCode && onCreateProduct && String(row.productCode || '').trim() && (
+              <button
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onCreateProduct(rowIndex, row.productCode)}
+                title="Create this product code"
+                className="mt-0.5 block w-full rounded bg-amber-500 px-1 py-0.5 text-[10px] font-semibold text-white hover:bg-amber-600"
+              >
+                ＋ Add {String(row.productCode).toUpperCase()}
+              </button>
+            )}
           </div>
         );
       }

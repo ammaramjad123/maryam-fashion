@@ -242,6 +242,43 @@ export default function DayBook() {
     setSection(key, (rowsK) => rowsK.filter((_, idx) => idx !== i));
   const onCommit = () => {}; // trailing blank is guaranteed by normalize()
 
+  // Create a brand-new product code right from the day book (any letter prefix;
+  // cost derives from the number — code × 50). Resolves the line on success so it
+  // stops being flagged red. Admin-only server-side; a friendly error otherwise.
+  const onCreateProduct = (key) => async (rowIndex, rawCode) => {
+    const code = String(rawCode || '').trim().toUpperCase();
+    if (!code) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const created = await apiFetch('/products', {
+        method: 'POST',
+        body: { code, name: `Cloth ${code}` },
+      });
+      setProductMeta((m) => ({
+        ...m,
+        [created._id]: {
+          code: created.code,
+          name: created.name,
+          saleRate: created.saleRate,
+          costRate: created.costRate,
+        },
+      }));
+      setSection(key, (rowsK) =>
+        rowsK.map((r, idx) =>
+          idx === rowIndex
+            ? { ...r, productId: created._id, productCode: created.code, productError: false }
+            : r
+        )
+      );
+      setMsg({ kind: 'ok', text: `Added new code ${created.code}.` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: errorText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // --- live totals --------------------------------------------------------
   const liveTotals = useMemo(() => {
     let cashSale = 0,
@@ -508,6 +545,7 @@ export default function DayBook() {
     onCellChange: onCellChange(key),
     onCommit,
     onDeleteRow: onDeleteRow(key),
+    onCreateProduct: isAdmin ? onCreateProduct(key) : undefined, // create new codes inline (admin)
     readOnly: !editable,
   });
 
