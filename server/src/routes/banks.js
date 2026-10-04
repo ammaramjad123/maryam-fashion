@@ -8,6 +8,9 @@ const router = Router();
 
 router.use(requireAuth);
 router.get('/banks', controller.list);
+router.get('/banks/:id/entries', controller.listEntries);
 router.post('/banks/:id/entries', controller.addEntry);
+router.patch('/banks/:id/entries/:entryId', controller.updateEntry);
+router.delete('/banks/:id/entries/:entryId', controller.deleteEntry);
 
 export default router;

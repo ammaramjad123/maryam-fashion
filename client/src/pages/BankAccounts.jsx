@@ -7,6 +7,7 @@ import { todayYmd, ymdOf } from '../lib/day.js';
 // number is money we have; negative = overdraft, shown red).
 const plain = (b) => money(b?.signedBalance || 0);
 const isNeg = (b) => (b?.signedBalance || 0) < 0;
+const CELL = 'w-full rounded border border-stone-300 px-1 py-0.5 text-[13px] outline-none focus:bg-amber-50/60';
 const ddmmyyyy = (v) => {
   const ymd = ymdOf(v) || String(v || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return '';
@@ -22,6 +23,9 @@ export default function BankAccounts() {
   const [ledger, setLedger] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState(null); // entry being edited
+  const [editForm, setEditForm] = useState({ date: '', narration: '', direction: 'DR', amount: '' });
+  const [confirmDelId, setConfirmDelId] = useState(null); // entry awaiting delete confirm
 
   const loadBanks = useCallback(async () => {
     const { items } = await apiFetch('/banks');
@@ -35,7 +39,9 @@ export default function BankAccounts() {
 
   const loadLedger = useCallback(async (bank) => {
     if (!bank) return setLedger(null);
-    const d = await apiFetch(`/reports/ledger?partyId=${bank._id}&from=2000-01-01&to=${todayYmd()}`);
+    // Dedicated bank-entries feed: each row carries its _id so it can be edited
+    // or deleted (the shared ledger report omits ids).
+    const d = await apiFetch(`/banks/${bank._id}/entries`);
     setLedger(d);
   }, []);
 
@@ -48,6 +54,53 @@ export default function BankAccounts() {
     if (selected) {
       setSelected(items.find((b) => b._id === selected._id) || null);
       await loadLedger(selected);
+    }
+  }
+
+  function startEdit(r) {
+    setConfirmDelId(null);
+    setEditId(r._id);
+    setEditForm({
+      date: r.date,
+      narration: r.narration || '',
+      direction: r.credit > 0 ? 'CR' : 'DR',
+      amount: String(r.credit > 0 ? r.credit : r.debit || ''),
+    });
+  }
+
+  async function saveEdit() {
+    setBusy(true);
+    try {
+      await apiFetch(`/banks/${selected._id}/entries/${editId}`, {
+        method: 'PATCH',
+        body: {
+          date: editForm.date,
+          narration: editForm.narration,
+          direction: editForm.direction,
+          amount: Number(editForm.amount) || 0,
+        },
+      });
+      setEditId(null);
+      setMsg({ kind: 'ok', text: 'Entry updated.' });
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeEntry(id) {
+    setBusy(true);
+    try {
+      await apiFetch(`/banks/${selected._id}/entries/${id}`, { method: 'DELETE' });
+      setConfirmDelId(null);
+      setMsg({ kind: 'ok', text: 'Entry deleted.' });
+      await refresh();
+    } catch (e) {
+      setMsg({ kind: 'err', text: e.message });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -150,28 +203,126 @@ export default function BankAccounts() {
                       <th className="px-2 py-1 text-right">Debit</th>
                       <th className="px-2 py-1 text-right">Credit</th>
                       <th className="px-2 py-1 text-right">Balance</th>
+                      <th className="px-2 py-1 text-right" />
                     </tr>
                   </thead>
                   <tbody>
                     {ledger?.rows?.length ? (
-                      ledger.rows.map((r, i) => (
-                        <tr key={i} className="border-t border-stone-100">
-                          <td className="px-2 py-1">{ddmmyyyy(r.date)}</td>
-                          <td className="px-2 py-1">{r.narration}</td>
-                          <td className="px-2 py-1 text-right tabular-nums">
-                            {r.debit ? money(r.debit) : ''}
-                          </td>
-                          <td className="px-2 py-1 text-right tabular-nums">
-                            {r.credit ? money(r.credit) : ''}
-                          </td>
-                          <td className={`px-2 py-1 text-right tabular-nums ${isNeg(r.balance) ? 'text-red-600' : ''}`}>
-                            {plain(r.balance)}
-                          </td>
-                        </tr>
-                      ))
+                      ledger.rows.map((r) =>
+                        editId === r._id ? (
+                          // --- inline edit row ---
+                          <tr key={r._id} className="border-t border-stone-100 bg-amber-50/50">
+                            <td className="px-2 py-1">
+                              <input
+                                type="date"
+                                className={CELL}
+                                value={editForm.date}
+                                onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                className={CELL}
+                                placeholder="note"
+                                value={editForm.narration}
+                                onChange={(e) => setEditForm((f) => ({ ...f, narration: e.target.value }))}
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <select
+                                className={CELL}
+                                value={editForm.direction}
+                                onChange={(e) => setEditForm((f) => ({ ...f, direction: e.target.value }))}
+                              >
+                                <option value="DR">Debit</option>
+                                <option value="CR">Credit</option>
+                              </select>
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                className={`${CELL} text-right`}
+                                inputMode="decimal"
+                                placeholder="0"
+                                value={editForm.amount}
+                                onChange={(e) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
+                              />
+                            </td>
+                            <td className="px-2 py-1 text-right text-stone-300">—</td>
+                            <td className="px-2 py-1 text-right whitespace-nowrap">
+                              <button
+                                onClick={saveEdit}
+                                disabled={busy}
+                                className="rounded bg-stone-800 px-2 py-0.5 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-60"
+                              >
+                                Save
+                              </button>{' '}
+                              <button
+                                onClick={() => setEditId(null)}
+                                disabled={busy}
+                                className="rounded border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100"
+                              >
+                                Cancel
+                              </button>
+                            </td>
+                          </tr>
+                        ) : (
+                          // --- normal row ---
+                          <tr key={r._id} className="border-t border-stone-100">
+                            <td className="px-2 py-1">{ddmmyyyy(r.date)}</td>
+                            <td className="px-2 py-1">{r.narration}</td>
+                            <td className="px-2 py-1 text-right tabular-nums">
+                              {r.debit ? money(r.debit) : ''}
+                            </td>
+                            <td className="px-2 py-1 text-right tabular-nums">
+                              {r.credit ? money(r.credit) : ''}
+                            </td>
+                            <td className={`px-2 py-1 text-right tabular-nums ${isNeg(r.balance) ? 'text-red-600' : ''}`}>
+                              {plain(r.balance)}
+                            </td>
+                            <td className="px-2 py-1 text-right whitespace-nowrap">
+                              {confirmDelId === r._id ? (
+                                <>
+                                  <button
+                                    onClick={() => removeEntry(r._id)}
+                                    disabled={busy}
+                                    className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                                  >
+                                    Delete
+                                  </button>{' '}
+                                  <button
+                                    onClick={() => setConfirmDelId(null)}
+                                    disabled={busy}
+                                    className="rounded border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEdit(r)}
+                                    className="rounded border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100"
+                                  >
+                                    Edit
+                                  </button>{' '}
+                                  <button
+                                    onClick={() => {
+                                      setEditId(null);
+                                      setConfirmDelId(r._id);
+                                    }}
+                                    className="rounded border border-stone-300 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      )
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-2 py-4 text-center text-stone-400">
+                        <td colSpan={6} className="px-2 py-4 text-center text-stone-400">
                           No entries yet.
                         </td>
                       </tr>
