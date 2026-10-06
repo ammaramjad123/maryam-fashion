@@ -53,7 +53,20 @@ export async function search(query) {
     const rx = new RegExp(escapeRegex(q), 'i');
     filter.$or = [{ code: rx }, { name: rx }];
   }
-  return Product.find(filter).select('code name saleRate').sort({ codeNumber: 1, code: 1 }).limit(limit);
+  const [items, setting] = await Promise.all([
+    Product.find(filter).select('code name saleRate codeNumber').sort({ codeNumber: 1, code: 1 }).limit(limit),
+    getSetting(),
+  ]);
+  // Attach the DERIVED costRate so the Day Book can show a line's profit even for a
+  // product it hadn't cached at mount (e.g. a code added afterwards, picked from the
+  // dropdown). profitFilter strips costRate for operators (no viewProfit).
+  return items.map((p) => ({
+    _id: p._id,
+    code: p.code,
+    name: p.name,
+    saleRate: p.saleRate,
+    costRate: costRateForProduct(p, setting),
+  }));
 }
 
 // Internal: the Mongoose document, for mutation.

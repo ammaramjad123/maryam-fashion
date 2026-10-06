@@ -231,6 +231,13 @@ P   = amt − (costRate × qty)         where costRate = codeNumber × 50
 So **the engine's math does not change** — only where `costRate` comes from. It is now
 **derived from the code**, not typed by hand.
 
+> **R6.2 — the type-ahead must carry `costRate`.** A line's profit in the Day Book is
+> computed on the client from the product's derived `costRate`. `GET /products/search`
+> therefore returns `costRate` (derived, stripped for operators by `profitFilter`), and a
+> dropdown pick is folded into the page's product map. Without this, a code added *after*
+> the Day Book page loaded (e.g. `M101`) resolves fine but shows a **blank P cell** — the
+> engine still posts the correct profit, only the on-screen number was missing.
+
 
 
 ---

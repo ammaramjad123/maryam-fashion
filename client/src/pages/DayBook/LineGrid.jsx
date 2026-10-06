@@ -14,6 +14,7 @@ export default function LineGrid({
   rows,
   productMeta, // id -> { costRate, saleRate, code }
   resolveProduct, // (text) => product | null  (case-insensitive code lookup)
+  onProductPick, // (product) => void — fold a pick into productMeta (for its costRate)
   billNos, // effective bill numbers per sale row (auto/override), or undefined
   onCellChange, // (rowIndex, patch) => void
   onCommit, // (rowIndex) => void
@@ -120,13 +121,15 @@ export default function LineGrid({
 
     switch (col.type) {
       case 'product': {
-        const select = (it) =>
+        const select = (it) => {
+          if (onProductPick) onProductPick(it); // make its costRate known for profit
           onCellChange(rowIndex, {
             productId: it._id,
             productCode: it.code,
             rate: num(row.rate) ? row.rate : it.saleRate,
             productError: false,
           });
+        };
         const badCode = !!row.productError;
         return (
           <div className={badCode ? 'rounded bg-red-50 ring-1 ring-red-400' : ''}>

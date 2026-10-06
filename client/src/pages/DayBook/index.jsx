@@ -335,6 +335,22 @@ export default function DayBook() {
   }, [productMeta]);
   const resolveProduct = useCallback((text) => codeIndex[String(text).trim().toUpperCase()] || null, [codeIndex]);
 
+  // When a line picks a product the page hadn't cached at mount (e.g. a code added
+  // afterwards, chosen from the dropdown), fold it into productMeta so its profit
+  // computes immediately. Preserve any existing costRate when the pick lacks one.
+  const onProductPick = useCallback((p) => {
+    if (!p?._id) return;
+    setProductMeta((m) => ({
+      ...m,
+      [p._id]: {
+        code: p.code ?? m[p._id]?.code,
+        name: p.name ?? m[p._id]?.name,
+        saleRate: p.saleRate ?? m[p._id]?.saleRate,
+        costRate: p.costRate ?? m[p._id]?.costRate,
+      },
+    }));
+  }, []);
+
   // Rows with a typed code that didn't resolve to a product → block posting.
   const unresolved = useMemo(
     () =>
@@ -505,6 +521,7 @@ export default function DayBook() {
     rows: rows[key],
     productMeta,
     resolveProduct, // code → product (case-insensitive), for typed-code resolution
+    onProductPick, // fold a dropdown pick into productMeta so its profit shows
     onCellChange: onCellChange(key),
     onCommit,
     onDeleteRow: onDeleteRow(key),
